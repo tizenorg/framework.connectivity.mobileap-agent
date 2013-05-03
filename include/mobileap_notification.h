@@ -23,7 +23,7 @@
 #include <notification.h>
 
 #define MH_NOTI_STR_MAX		50
-#define MH_NOTI_ICON_PATH	"/usr/apps/org.tizen.tethering/res/images/Q02_Notification_MobileAP.png"
+#define MH_NOTI_ICON_PATH	"/usr/ug/res/images/ug-setting-mobileap-efl/tethering.png"
 
 int _create_timeout_noti(const char *content, const char *title,
 		const char *icon_path);

@@ -70,8 +70,10 @@ int _create_timeout_noti(const char *content, const char *title,
 		return MOBILE_AP_ERROR_INTERNAL;
 	}
 
+	/* To prevent the app running, using the flag(NOTIFICATION_PROP_DISABLE_APP_LAUNCH) */
 	ret = notification_set_property(noti,
-			NOTIFICATION_PROP_VOLATILE_DISPLAY);
+			NOTIFICATION_PROP_VOLATILE_DISPLAY |
+			NOTIFICATION_PROP_DISABLE_APP_LAUNCH);
 	if (ret != NOTIFICATION_ERROR_NONE) {
 		ERR("Fail to notification_set_property [%d]\n", ret);
 		goto FAIL;
@@ -114,11 +116,14 @@ int _create_timeout_noti(const char *content, const char *title,
 		goto FAIL;
 	}
 
+	/* Unnecessary Code before app control implementation */
+	#if 0
 	ret = notification_set_application(noti, MH_NOTI_APP_NAME);
 	if (ret != NOTIFICATION_ERROR_NONE) {
 		ERR("Fail to notification_set_application [%d]\n", ret);
 		goto FAIL;
 	}
+	#endif
 
 	ret = notification_insert(noti, &timeout_noti_id);
 	if (ret != NOTIFICATION_ERROR_NONE) {
@@ -183,9 +188,11 @@ int _create_connected_noti(const char *content, const char *title,
 		return MOBILE_AP_ERROR_INTERNAL;
 	}
 
+	/* To prevent the app running, using the flag(NOTIFICATION_PROP_DISABLE_APP_LAUNCH) */
 	ret = notification_set_property(noti,
 			NOTIFICATION_PROP_DISABLE_AUTO_DELETE |
-			NOTIFICATION_PROP_VOLATILE_DISPLAY);
+			NOTIFICATION_PROP_VOLATILE_DISPLAY |
+			NOTIFICATION_PROP_DISABLE_APP_LAUNCH);
 	if (ret != NOTIFICATION_ERROR_NONE) {
 		ERR("Fail to notification_set_property [%d]\n", ret);
 		goto FAIL;
@@ -227,11 +234,14 @@ int _create_connected_noti(const char *content, const char *title,
 		goto FAIL;
 	}
 
+	/* Unnecessary Code before app control implementation */
+	#if 0
 	ret = notification_set_application(noti, MH_NOTI_APP_NAME);
 	if (ret != NOTIFICATION_ERROR_NONE) {
 		ERR("Fail to notification_set_application [%d]\n", ret);
 		goto FAIL;
 	}
+	#endif
 
 	ret = notification_insert(noti, &connected_noti_id);
 	if (ret != NOTIFICATION_ERROR_NONE) {

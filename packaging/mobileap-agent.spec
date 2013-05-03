@@ -1,6 +1,6 @@
 Name:       mobileap-agent
 Summary:    Mobile AP daemon for setting tethering environments
-Version:    0.1.88
+Version:    0.1.89
 Release:    1
 Group:      TO_BE/FILLED_IN
 License:    Flora License
