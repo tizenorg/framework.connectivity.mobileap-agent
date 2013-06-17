@@ -256,7 +256,7 @@ static void __bt_adapter_state_changed(int result, bt_adapter_state_e adapter_st
 	} else {
 		ret = bt_adapter_get_visibility(&mode, &duration);
 		if (ret == BT_ERROR_NONE && mode == BT_ADAPTER_VISIBILITY_MODE_NON_DISCOVERABLE)
-			_create_status_noti("Bluetooth visible time is off. You may not find your device.");
+			_create_status_noti(MH_NOTI_BT_VISIBILITY_STR);
 	}
 
 	ret = __activate_bt_nap(obj);
@@ -372,7 +372,7 @@ mobile_ap_error_code_e _enable_bt_tethering(TetheringObject *obj,
 	} else {
 		bt_ret = bt_adapter_get_visibility(&mode, &duration);
 		if (bt_ret == BT_ERROR_NONE && mode == BT_ADAPTER_VISIBILITY_MODE_NON_DISCOVERABLE)
-			_create_status_noti("Bluetooth visible time is off. You may not find your device.");
+			_create_status_noti(MH_NOTI_BT_VISIBILITY_STR);
 
 	}
 

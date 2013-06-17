@@ -27,9 +27,6 @@
 #include "mobileap_usb.h"
 #include "mobileap_notification.h"
 
-/* Need translation */
-#define MH_NOTI_TIMEOUT_STR	"Tap for setting"
-#define MH_NOTI_TIMEOUT_TITLE	"Disable tethering by timeout"
 
 typedef struct {
 	guint src_id;

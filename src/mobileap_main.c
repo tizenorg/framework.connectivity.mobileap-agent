@@ -27,6 +27,7 @@
 #include <pmapi.h>
 #include <vconf.h>
 #include <net_connection.h>
+#include <appcore-common.h>
 
 #include "mobileap_agent.h"
 #include "mobileap_handler.h"
@@ -35,6 +36,7 @@
 #include "mobileap_wifi.h"
 #include "mobileap_usb.h"
 #include "mobileap_network.h"
+#include "mobileap_notification.h"
 
 GType tethering_object_get_type(void);
 #define TETHERING_TYPE_OBJECT (tethering_object_get_type())
@@ -554,6 +556,9 @@ int main(int argc, char **argv)
 #if !GLIB_CHECK_VERSION(2,35,0)
 	g_type_init();
 #endif
+
+	if (appcore_set_i18n(MOBILEAP_LOCALE_COMMON_PKG, MOBILEAP_LOCALE_COMMON_RES) < 0)
+				goto failure;
 
 	if (vconf_get_int(VCONFKEY_MOBILE_HOTSPOT_MODE, &mobileap_vconf_key)) {
 		ERR("vconf_get_int FAIL\n");

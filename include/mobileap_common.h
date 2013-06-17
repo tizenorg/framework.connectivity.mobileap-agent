@@ -22,10 +22,6 @@
 
 #include "mobileap_agent.h"
 
-/* Need translation */
-#define MH_NOTI_STR	"Connected device (%d)"
-#define MH_NOTI_TITLE	"Tethering"
-
 gint _slist_find_station_by_interface(gconstpointer a, gconstpointer b);
 gint _slist_find_station_by_mac(gconstpointer a, gconstpointer b);
 gint _slist_find_station_by_ip_addr(gconstpointer a, gconstpointer b);

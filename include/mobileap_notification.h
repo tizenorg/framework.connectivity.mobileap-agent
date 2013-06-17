@@ -23,6 +23,18 @@
 #define MH_NOTI_STR_MAX		50
 #define MH_NOTI_ICON_PATH	"/usr/ug/res/images/ug-setting-mobileap-efl/tethering.png"
 
+#define MOBILEAP_LOCALE_COMMON_PKG		"ug-setting-mobileap-efl"
+#define MOBILEAP_LOCALE_COMMON_RES		"/usr/ug/res/locale"
+
+#define _(str)			dgettext(MOBILEAP_LOCALE_COMMON_PKG, str)
+
+#define MH_NOTI_STR	_("IDS_MOBILEAP_POP_CONNECTED_DEVICES_C_PD")
+#define MH_NOTI_TITLE	_("IDS_MOBILEAP_BODY_TETHERING")
+#define MH_NOTI_TIMEOUT_STR	_("IDS_MOBILEAP_BODY_TAP_TO_CONFIGURE_TETHERING")
+#define MH_NOTI_TIMEOUT_TITLE	"Disable tethering by timeout"
+#define MH_NOTI_BT_VISIBILITY_STR	_("IDS_ST_BODY_BLUETOOTH_VISIBILITY_HAS_TIMED_OUT_YOUR_DEVICE_MIGHT_NOT_BE_FOUND")
+
+
 int _create_timeout_noti(const char *content, const char *title,
 		const char *icon_path);
 int _delete_timeout_noti(void);
