@@ -1,6 +1,6 @@
 Name:       mobileap-agent
 Summary:    Mobile AP daemon for setting tethering environments
-Version:    0.1.92
+Version:    0.1.93
 Release:    1
 Group:      TO_BE/FILLED_IN
 License:    Apache-2.0
@@ -42,6 +42,7 @@ make %{?jobs:-j%jobs}
 
 %files
 %manifest mobileap-agent.manifest
+/opt/etc/smack/accesses.d/mobileap-agent.rule
 %defattr(-,root,root,-)
 /usr/share/dbus-1/services/org.tizen.tethering.service
 %{_bindir}/mobileap-agent

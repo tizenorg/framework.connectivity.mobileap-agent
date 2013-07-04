@@ -1,0 +1,4 @@
+root mobileap-agent rw---
+_default_ mobileap-agent rw---
+mobileap-agent secure-storage::tethering rw---
+mobileap-agent bt-service::admin -w---
