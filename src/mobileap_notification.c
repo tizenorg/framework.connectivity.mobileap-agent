@@ -25,8 +25,9 @@
 
 #include "mobileap_agent.h"
 
+//#define __ENABLE_UG_LAUNCH
 #define MH_NOTI_APP_NAME	"setting-mobileap-efl"
-#define MH_AGENT_PKG_NAME "mobileap-agent"
+#define MH_AGENT_PKG_NAME	"mobileap-agent"
 
 static int connected_noti_id = 0;
 static int timeout_noti_id = 0;
@@ -69,7 +70,12 @@ int _create_timeout_noti(const char *content, const char *title,
 	}
 
 	ret = notification_set_property(noti,
+#ifdef __ENABLE_UG_LAUNCH
 			NOTIFICATION_PROP_VOLATILE_DISPLAY);
+#else
+			NOTIFICATION_PROP_VOLATILE_DISPLAY |
+			NOTIFICATION_PROP_DISABLE_APP_LAUNCH);
+#endif
 	if (ret != NOTIFICATION_ERROR_NONE) {
 		ERR("Fail to notification_set_property [%d]\n", ret);
 		goto FAIL;
@@ -111,13 +117,13 @@ int _create_timeout_noti(const char *content, const char *title,
 		ERR("Fail to notification_set_pkgname [%d]\n", ret);
 		goto FAIL;
 	}
-
+#ifdef __ENABLE_UG_LAUNCH
 	ret = notification_set_application(noti, MH_NOTI_APP_NAME);
 	if (ret != NOTIFICATION_ERROR_NONE) {
 		ERR("Fail to notification_set_application [%d]\n", ret);
 		goto FAIL;
 	}
-
+#endif
 	ret = notification_insert(noti, &timeout_noti_id);
 	if (ret != NOTIFICATION_ERROR_NONE) {
 		ERR("Fail to notification_insert [%d]\n", ret);
@@ -183,7 +189,12 @@ int _create_connected_noti(const char *content, const char *title,
 
 	ret = notification_set_property(noti,
 			NOTIFICATION_PROP_DISABLE_AUTO_DELETE |
+#ifdef __ENABLE_UG_LAUNCH
 			NOTIFICATION_PROP_VOLATILE_DISPLAY);
+#else
+			NOTIFICATION_PROP_VOLATILE_DISPLAY |
+			NOTIFICATION_PROP_DISABLE_APP_LAUNCH);
+#endif
 	if (ret != NOTIFICATION_ERROR_NONE) {
 		ERR("Fail to notification_set_property [%d]\n", ret);
 		goto FAIL;
@@ -224,13 +235,13 @@ int _create_connected_noti(const char *content, const char *title,
 		ERR("Fail to notification_set_pkgname [%d]\n", ret);
 		goto FAIL;
 	}
-
+#ifdef __ENABLE_UG_LAUNCH
 	ret = notification_set_application(noti, MH_NOTI_APP_NAME);
 	if (ret != NOTIFICATION_ERROR_NONE) {
 		ERR("Fail to notification_set_application [%d]\n", ret);
 		goto FAIL;
 	}
-
+#endif
 	ret = notification_insert(noti, &connected_noti_id);
 	if (ret != NOTIFICATION_ERROR_NONE) {
 		ERR("Fail to notification_insert [%d]\n", ret);
