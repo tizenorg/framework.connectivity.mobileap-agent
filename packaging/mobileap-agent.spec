@@ -33,6 +33,9 @@ make %{?jobs:-j%jobs}
 
 %install
 %make_install
+mkdir -p %{buildroot}/usr/share/license
+cp LICENSE.APLv2.0 %{buildroot}/usr/share/license/%{name}
+
 
 %post
 /usr/bin/vconftool set -t int memory/mobile_hotspot/connected_device "0" -u 0 -i -f
@@ -46,6 +49,7 @@ make %{?jobs:-j%jobs}
 %defattr(-,root,root,-)
 /usr/share/dbus-1/services/org.tizen.tethering.service
 %{_bindir}/mobileap-agent
+/usr/share/license/%{name}
 
 %changelog
 * Tue Apr 09 2013 Seungyoun Ju <sy39.ju@samsung.com> 0.1.86-1
