@@ -1,0 +1,63 @@
+CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
+PROJECT(mobileap-agent C)
+
+SET(SRCS src/mobileap_agent.c
+	src/mobileap_main.c
+	src/mobileap_wifi.c
+	src/mobileap_usb.c
+	src/mobileap_bluetooth.c
+	src/mobileap_handler.c
+	src/mobileap_common.c
+	src/mobileap_notification.c
+	src/mobileap_network.c
+)
+
+SET(CMAKE_INSTALL_PREFIX /usr)
+
+SET(APP_VENDOR "tizen")
+SET(APP_NAME mobileap-agent)
+SET(APP_DIR ${CMAKE_INSTALL_PREFIX}/bin)
+SET(INCLUDE_DIR ${CMAKE_SOURCE_DIR}/include)
+
+IF("${CMAKE_BUILD_TYPE}" STREQUAL "")
+	SET(CMAKE_BUILD_TYPE "Release")
+ENDIF("${CMAKE_BUILD_TYPE}" STREQUAL "")
+
+MESSAGE("Build type: ${CMAKE_BUILD_TYPE}")
+
+INCLUDE_DIRECTORIES(${INCLUDE_DIR})
+
+INCLUDE(FindPkgConfig)
+pkg_check_modules(pkgs REQUIRED dlog dbus-glib-1 pmapi vconf notification libssl secure-storage capi-network-connection capi-network-bluetooth appcore-common ${PRIVATE_REQUIRED_PKGS})
+FOREACH(flag ${pkgs_CFLAGS})
+	SET(EXTRA_CFLAGS "${EXTRA_CFLAGS} ${flag}")
+ENDFOREACH(flag)
+
+SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${EXTRA_CFLAGS} -fpie -Wall")
+SET(CMAKE_C_FLAGS_DEBUG "-O0 -g")
+SET(CMAKE_C_FLAGS_RELEASE "-O2")
+
+FIND_PROGRAM(UNAME NAMES uname)
+EXEC_PROGRAM("${UNAME}" ARGS "-m" OUTPUT_VARIABLE "ARCH")
+IF("${ARCH}" STREQUAL "arm")
+	ADD_DEFINITIONS("-DTARGET")
+	MESSAGE("add -DTARGET")
+ENDIF("${ARCH}" STREQUAL "arm")
+
+FIND_PROGRAM(DBUS_BINDING_TOOL NAMES dbus-binding-tool)
+EXEC_PROGRAM("${DBUS_BINDING_TOOL}" ARGS "--prefix=tethering ${INCLUDE_DIR}/tethering-dbus-interface.xml --mode=glib-server --output=${INCLUDE_DIR}/tethering-server-stub.h")
+
+ADD_DEFINITIONS("-DPREFIX=\"${CMAKE_INSTALL_PREFIX}\"")
+ADD_DEFINITIONS("-DVENDOR=\"${APP_VENDOR}\"")
+ADD_DEFINITIONS("-DAPPNAME=\"${APP_NAME}\"")
+ADD_DEFINITIONS("-DAPP_DIR=\"${APP_DIR}\"")
+
+SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--as-needed -pie")
+
+ADD_EXECUTABLE(${PROJECT_NAME} ${SRCS})
+TARGET_LINK_LIBRARIES(${PROJECT_NAME} ${pkgs_LDFLAGS})
+
+INSTALL(TARGETS ${PROJECT_NAME} DESTINATION bin)
+INSTALL(FILES ${CMAKE_CURRENT_SOURCE_DIR}/packaging/org.tizen.tethering.service DESTINATION share/dbus-1/services)
+INSTALL(FILES ${CMAKE_BINARY_DIR}/mobileap-agent.rule DESTINATION /opt/etc/smack/accesses.d)
+
