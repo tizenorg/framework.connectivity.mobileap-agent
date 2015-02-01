@@ -20,7 +20,7 @@
 
 #include <glib.h>
 
-#include "mobileap_agent.h"
+#include "mobileap_softap.h"
 
 gint _slist_find_station_by_interface(gconstpointer a, gconstpointer b);
 gint _slist_find_station_by_mac(gconstpointer a, gconstpointer b);
@@ -38,9 +38,11 @@ int _get_station_info(gconstpointer data, GCompareFunc func,
 		mobile_ap_station_info_t **si);
 int _get_station_count(gconstpointer data, GCompareFunc func, int *count);
 int _station_info_foreach(GFunc func, void *user_data);
-int _add_data_usage_rule(const char *src, const char *dest);
-int _del_data_usage_rule(const char *src, const char *dest);
-int _get_data_usage(const char *src, const char *dest, unsigned long long *tx, unsigned long long *rx);
+int _add_interface_routing(const char *interface, const in_addr_t gateway);
+int _del_interface_routing(const char *interface, const in_addr_t gateway);
+int _add_routing_rule(const char *interface);
+int _del_routing_rule(const char *interface);
+int _flush_ip_address(const char *interface);
 int _execute_command(const char *cmd);
 int _get_tethering_type_from_ip(const char *ip, mobile_ap_type_e *type);
 

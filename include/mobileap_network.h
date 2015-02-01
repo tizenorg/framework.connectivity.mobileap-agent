@@ -20,12 +20,19 @@
 
 #include <glib.h>
 
+#define TETHERING_NET_OPEN_RETRY_INTERVAL	2000	/* 2 secs */
+
 gboolean _get_network_interface_name(char **if_name);
+gboolean _get_network_gateway_address(char **ip);
 gboolean _is_trying_network_operation(void);
 gboolean _set_masquerade(void);
 gboolean _unset_masquerade(void);
-gboolean _open_network(void);
-gboolean _close_network(void);
+gboolean _add_default_router(void);
+gboolean _del_default_router(void);
+void _add_port_forward_rule(void);
+void _del_port_forward_rule(void);
+int _open_network(void);
+void _close_network(void);
 gboolean _init_network(void *user_data);
 gboolean _deinit_network(void);
 

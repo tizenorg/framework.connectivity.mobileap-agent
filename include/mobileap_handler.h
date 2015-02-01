@@ -18,13 +18,22 @@
 #ifndef __MOBILEAP_HANDLER_H__
 #define __MOBILEAP_HANDLER_H__
 
+#include <time.h>
+#include <alarm.h>
+
+typedef struct {
+	void *obj;
+	unsigned int state;
+} changed_state_t;
+
 void _register_vconf_cb(void *user_data);
 void _unregister_vconf_cb(void *user_data);
 
+gboolean _is_power_save_survival_mode(void);
+int _sp_timeout_handler(alarm_id_t alarm_id, void *user_param);
 void _init_timeout_cb(mobile_ap_type_e type, void *user_data);
-void _start_timeout_cb(mobile_ap_type_e type);
+void _start_timeout_cb(mobile_ap_type_e type, time_t end_time);
 void _stop_timeout_cb(mobile_ap_type_e type);
 void _deinit_timeout_cb(mobile_ap_type_e type);
-
 
 #endif

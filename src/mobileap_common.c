@@ -70,7 +70,13 @@ void _emit_mobileap_dbus_signal(TetheringObject *obj,
 {
 	TetheringObjectClass *klass = TETHERING_OBJECT_GET_CLASS(obj);
 
-	DBG("Emitting signal id [%d], with message [%s]\n", num, message);
+	SDBG("Emitting signal id [%d], with message [%s]\n", num, message);
+
+	if (num == E_SIGNAL_WIFI_TETHER_ON ||
+			num == E_SIGNAL_USB_TETHER_ON || num == E_SIGNAL_BT_TETHER_ON) {
+		_create_tethering_active_noti();
+	}
+
 	g_signal_emit(obj, klass->signals[num], 0, message);
 }
 
@@ -116,18 +122,22 @@ void _send_dbus_station_info(const char *member, mobile_ap_station_info_t *info)
 	return;
 }
 
-
 void _update_station_count(int count)
 {
 	static int prev_cnt = 0;
-	char str[MH_NOTI_STR_MAX] = {0, };
+	char icon_path[MH_NOTI_PATH_MAX] = {0, };
+	int wifi_count = 0;
+	int bt_count = 0;
+	int usb_count = 0;
 
-	if (prev_cnt == count) {
-		DBG("No need to update\n");
+	if (_mobileap_is_enabled(MOBILE_AP_STATE_WIFI_AP)) {
 		return;
 	}
 
-	DBG("Update the number of station : %d\n", count);
+	if (prev_cnt == count) {
+		return;
+	}
+
 	if (vconf_set_int(VCONFKEY_MOBILE_HOTSPOT_CONNECTED_DEVICE,
 				count) < 0) {
 		ERR("Error setting up vconf\n");
@@ -140,13 +150,26 @@ void _update_station_count(int count)
 		return;
 	}
 
-	snprintf(str, MH_NOTI_STR_MAX, MH_NOTI_STR, count);
-	if (prev_cnt == 0) {
-		DBG("Create notification\n");
-		_create_connected_noti(str, MH_NOTI_TITLE, MH_NOTI_ICON_PATH);
+	_get_station_count((gconstpointer)MOBILE_AP_TYPE_WIFI, _slist_find_station_by_interface, &wifi_count);
+	_get_station_count((gconstpointer)MOBILE_AP_TYPE_BT, _slist_find_station_by_interface, &bt_count);
+	_get_station_count((gconstpointer)MOBILE_AP_TYPE_USB, _slist_find_station_by_interface, &usb_count);
+
+	if (wifi_count > 0 && bt_count == 0 && usb_count == 0) {
+		g_strlcpy(icon_path, MH_NOTI_ICON_WIFI, sizeof(icon_path));
+	} else if (wifi_count == 0 && bt_count > 0 && usb_count == 0) {
+		g_strlcpy(icon_path, MH_NOTI_ICON_BT, sizeof(icon_path));
+	} else if (wifi_count == 0 && bt_count == 0 && usb_count > 0) {
+		g_strlcpy(icon_path, MH_NOTI_ICON_USB, sizeof(icon_path));
+	} else if (wifi_count == 0 && bt_count == 0 && usb_count == 0) {
+		return;
 	} else {
-		DBG("Update notification\n");
-		_update_connected_noti(str);
+		g_strlcpy(icon_path, MH_NOTI_ICON_GENERAL, sizeof(icon_path));
+	}
+
+	if (prev_cnt == 0) {
+		_create_connected_noti(count, icon_path);
+	} else {
+		_update_connected_noti(count, icon_path);
 	}
 
 	prev_cnt = count;
@@ -167,18 +190,26 @@ int _add_station_info(mobile_ap_station_info_t *info)
 
 	if (_get_station_info(info->mac, _slist_find_station_by_mac, &si) ==
 			MOBILE_AP_ERROR_NONE) {
-		DBG("Already exist station : %s\n", info->mac);
-		return MOBILE_AP_ERROR_INTERNAL;
+		if (!si) {
+			return MOBILE_AP_ERROR_INTERNAL;
+		}
+
+		if (g_strcmp0(si->hostname, info->hostname) == 0 &&
+				g_strcmp0(si->ip, info->ip) == 0) {
+			return MOBILE_AP_ERROR_INTERNAL;
+		}
+
+		_remove_station_info(si->mac, _slist_find_station_by_mac);
 	}
 
 	station_list = g_slist_append(station_list, info);
 	for (l = station_list; l != NULL; l = g_slist_next(l)) {
 		si = (mobile_ap_station_info_t *)l->data;
-		DBG("[%d] interface : %d\n", i, si->interface);
-		DBG("[%d] station MAC : %s\n", i, si->mac);
-		DBG("[%d] station Hostname : %s\n", i, si->hostname);
-		DBG("[%d] station IP : %s\n", i, si->ip);
-		DBG("[%d] station connected time : %d\n", i, si->tm);
+		SDBG("[%d] interface : %d\n", i, si->interface);
+		SDBG("[%d] station MAC : %s\n", i, si->mac);
+		SDBG("[%d] station Hostname : %s\n", i, si->hostname);
+		SDBG("[%d] station IP : %s\n", i, si->ip);
+		SDBG("[%d] station connected time : %d\n", i, si->tm);
 		i++;
 	}
 
@@ -211,9 +242,10 @@ int _remove_station_info(gconstpointer data, GCompareFunc func)
 	}
 
 	si = (mobile_ap_station_info_t *)l->data;
-	DBG("Remove station MAC : %s\n", si->mac);
+	SDBG("Remove station MAC : %s\n", si->mac);
 	station_list = g_slist_delete_link(station_list, l);
 	_send_dbus_station_info("DhcpLeaseDeleted", si);
+	g_free(si->hostname);
 	g_free(si);
 
 	count = g_slist_length(station_list);
@@ -233,16 +265,18 @@ int _remove_station_info_all(mobile_ap_type_e type)
 	mobile_ap_station_info_t *si = NULL;
 	int count;
 
+	_flush_dhcp_ack_timer();
+
 	while (l) {
 		si = (mobile_ap_station_info_t *)l->data;
-		DBG("interface : %d\n", si->interface);
 		if (si->interface != type) {
 			l = g_slist_next(l);
 			continue;
 		}
 
-		DBG("Remove station MAC : %s\n", si->mac);
+		SDBG("Remove station MAC : %s\n", si->mac);
 		_send_dbus_station_info("DhcpLeaseDeleted", si);
+		g_free(si->hostname);
 		g_free(si);
 
 		temp_l = l;
@@ -279,7 +313,7 @@ int _get_station_info(gconstpointer data, GCompareFunc func,
 	}
 
 	node = l->data;
-	DBG("Found station : %s\n", node->mac);
+	SDBG("Found station : %s\n", node->mac);
 	*si = node;
 
 	return MOBILE_AP_ERROR_NONE;
@@ -302,7 +336,6 @@ int _get_station_count(gconstpointer data, GCompareFunc func, int *count)
 	}
 
 	*count = _count;
-	DBG("Station count : %d\n", *count);
 
 	return MOBILE_AP_ERROR_NONE;
 }
@@ -319,115 +352,115 @@ int _station_info_foreach(GFunc func, void *user_data)
 	return MOBILE_AP_ERROR_NONE;
 }
 
-int _add_data_usage_rule(const char *src, const char *dest)
+int _add_interface_routing(const char *interface, const in_addr_t gateway)
 {
-	if (src == NULL || src[0] == '\0' ||
-			dest == NULL || dest[0] == '\0' ||
-			g_strcmp0(src, dest) == 0) {
+	if (interface == NULL || interface[0] == '\0') {
 		ERR("Invalid parameter\n");
 		return MOBILE_AP_ERROR_INVALID_PARAM;
 	}
 
 	char cmd[MAX_BUF_SIZE] = {0, };
+	struct in_addr addr;
+	char *interface_gw;
+	in_addr_t subnet;
 
-	snprintf(cmd, sizeof(cmd), "%s -A FORWARD "FORWARD_RULE,
-			IPTABLES, src, dest);
-	DBG("ADD IPTABLES RULE : %s\n", cmd);
-	if (_execute_command(cmd)) {
-		ERR("iptables failed : %s\n", cmd);
-		return MOBILE_AP_ERROR_INTERNAL;
-	}
+	addr.s_addr = htonl(gateway);
 
-	snprintf(cmd, sizeof(cmd), "%s -A FORWARD "FORWARD_RULE,
-			IPTABLES, dest, src);
-	DBG("ADD IPTABLES RULE : %s\n", cmd);
+	subnet = inet_netof(addr);
+	addr = inet_makeaddr(subnet, 0);
+	interface_gw = inet_ntoa(addr);
+
+	snprintf(cmd, sizeof(cmd), "%s route add "INTERFACE_ROUTING,
+			IP_CMD, interface_gw, TETHERING_ROUTING_TABLE, interface);
 	if (_execute_command(cmd)) {
-		ERR("iptables failed : %s\n", cmd);
+		ERR("cmd failed : %s\n", cmd);
 		return MOBILE_AP_ERROR_INTERNAL;
 	}
 
 	return MOBILE_AP_ERROR_NONE;
 }
 
-int _del_data_usage_rule(const char *src, const char *dest)
+int _del_interface_routing(const char *interface, const in_addr_t gateway)
 {
-	if (src == NULL || src[0] == '\0' ||
-			dest == NULL || dest[0] == '\0' ||
-			g_strcmp0(src, dest) == 0) {
+	if (interface == NULL || interface[0] == '\0') {
 		ERR("Invalid parameter\n");
 		return MOBILE_AP_ERROR_INVALID_PARAM;
 	}
 
 	char cmd[MAX_BUF_SIZE] = {0, };
+	struct in_addr addr;
+	char *interface_gw;
+	in_addr_t subnet;
 
-	snprintf(cmd, sizeof(cmd), "%s -D FORWARD "FORWARD_RULE,
-			IPTABLES, src, dest);
-	DBG("REMOVE IPTABLES RULE : %s\n", cmd);
-	if (_execute_command(cmd)) {
-		ERR("iptables failed : %s\n", cmd);
-		return MOBILE_AP_ERROR_INTERNAL;
-	}
+	addr.s_addr = htonl(gateway);
 
-	snprintf(cmd, sizeof(cmd), "%s -D FORWARD "FORWARD_RULE,
-			IPTABLES, dest, src);
-	DBG("REMOVE IPTABLES RULE : %s\n", cmd);
+	subnet = inet_netof(addr);
+	addr = inet_makeaddr(subnet, 0);
+	interface_gw = inet_ntoa(addr);
+
+	snprintf(cmd, sizeof(cmd), "%s route del "INTERFACE_ROUTING,
+			IP_CMD, interface_gw, TETHERING_ROUTING_TABLE, interface);
 	if (_execute_command(cmd)) {
-		ERR("iptables failed : %s\n", cmd);
+		ERR("cmd failed : %s\n", cmd);
 		return MOBILE_AP_ERROR_INTERNAL;
 	}
 
 	return MOBILE_AP_ERROR_NONE;
 }
 
-int _get_data_usage(const char *src, const char *dest,
-		unsigned long long *tx, unsigned long long *rx)
+int _add_routing_rule(const char *interface)
 {
-	if (src == NULL || src[0] == '\0' ||
-			dest == NULL || dest[0] == '\0' ||
-			tx == NULL || rx == NULL) {
+	if (interface == NULL || interface[0] == '\0') {
 		ERR("Invalid parameter\n");
 		return MOBILE_AP_ERROR_INVALID_PARAM;
 	}
 
 	char cmd[MAX_BUF_SIZE] = {0, };
-	char buf[MAX_BUF_SIZE] = {0, };
-	FILE *fp = NULL;
 
-	/* Tx : Src. -> Dest. */
-	snprintf(cmd, sizeof(cmd),
-			"%s -L FORWARD -vx | %s \"%s[ ]*%s\" | %s '{ print $2 }' > %s",
-			IPTABLES, GREP, src, dest, AWK, DATA_USAGE_FILE);
-	if (system(cmd) < 0) {
-		ERR("\"cmd\" is failed\n");
-	}
-
-	/* Rx : Dest. -> Src. */
-	snprintf(cmd, sizeof(cmd),
-			"%s -L FORWARD -vx | %s \"%s[ ]*%s\" | %s '{ print $2 }' >> %s",
-			IPTABLES, GREP, dest, src, AWK, DATA_USAGE_FILE);
-	if (system(cmd) < 0) {
-		ERR("\"cmd\" is failed\n");
-	}
-
-	fp = fopen(DATA_USAGE_FILE, "r");
-	if (fp == NULL) {
-		ERR("%s open failed\n", DATA_USAGE_FILE);
-		ERR("%s\n", strerror(errno));
+	snprintf(cmd, sizeof(cmd), "%s rule add "SRC_ROUTING_RULE,
+			IP_CMD, interface, TETHERING_ROUTING_TABLE);
+	if (_execute_command(cmd)) {
+		ERR("cmd failed : %s\n", cmd);
 		return MOBILE_AP_ERROR_INTERNAL;
 	}
 
-	if (fgets(buf, sizeof(buf), fp) == NULL)
-		*tx = 0LL;
-	else
-		*tx = atoll(buf);
+	return MOBILE_AP_ERROR_NONE;
+}
 
-	if (fgets(buf, sizeof(buf), fp) == NULL)
-		*rx = 0LL;
-	else
-		*rx = atoll(buf);
+int _del_routing_rule(const char *interface)
+{
+	if (interface == NULL || interface[0] == '\0') {
+		ERR("Invalid parameter\n");
+		return MOBILE_AP_ERROR_INVALID_PARAM;
+	}
 
-	fclose(fp);
-	unlink(DATA_USAGE_FILE);
+	char cmd[MAX_BUF_SIZE] = {0, };
+
+	snprintf(cmd, sizeof(cmd), "%s rule del "SRC_ROUTING_RULE,
+			IP_CMD, interface, TETHERING_ROUTING_TABLE);
+	if (_execute_command(cmd)) {
+		ERR("cmd failed : %s\n", cmd);
+		return MOBILE_AP_ERROR_INTERNAL;
+	}
+
+	return MOBILE_AP_ERROR_NONE;
+}
+
+int _flush_ip_address(const char *interface)
+{
+	if (interface == NULL || interface[0] == '\0') {
+		ERR("Invalid parameter\n");
+		return MOBILE_AP_ERROR_INVALID_PARAM;
+	}
+
+	char cmd[MAX_BUF_SIZE] = {0, };
+
+	snprintf(cmd, sizeof(cmd), "%s addr flush dev %s",
+			IP_CMD, interface);
+	if (_execute_command(cmd)) {
+		ERR("cmd failed : %s\n", cmd);
+		return MOBILE_AP_ERROR_INTERNAL;
+	}
 
 	return MOBILE_AP_ERROR_NONE;
 }
@@ -444,7 +477,7 @@ int _execute_command(const char *cmd)
 	pid_t pid = 0;
 	gchar **args = NULL;
 
-	DBG("cmd : %s\n", cmd);
+	SDBG("CMD : %s\n", cmd);
 
 	args = g_strsplit_set(cmd, " ", -1);
 	if (!args) {
@@ -465,8 +498,6 @@ int _execute_command(const char *cmd)
 		ERR("Should never get here!\n");
 		return EXIT_FAILURE;
 	} else {
-		DBG("child pid : %d\n", pid);
-
 		/* Need to add timeout */
 		waitpid(pid, &status, 0);
 		g_strfreev(args);
@@ -477,7 +508,6 @@ int _execute_command(const char *cmd)
 				ERR("child return : %d\n", exit_status);
 				return EXIT_FAILURE;
 			}
-			DBG("child terminated normally\n");
 			return EXIT_SUCCESS;
 		} else {
 			ERR("child is terminated without exit\n");
@@ -503,7 +533,7 @@ int _get_tethering_type_from_ip(const char *ip, mobile_ap_type_e *type)
 	in_addr_t subnet;
 
 	if (inet_aton(ip, &addr) == 0) {
-		ERR("Address : %s is invalid\n", ip);
+		SERR("Address : %s is invalid\n", ip);
 		return MOBILE_AP_ERROR_INVALID_PARAM;
 	}
 	subnet = inet_netof(addr);
@@ -524,7 +554,10 @@ int _get_tethering_type_from_ip(const char *ip, mobile_ap_type_e *type)
 	}
 
 	if (subnet == subnet_wifi) {
-		*type = MOBILE_AP_TYPE_WIFI;
+		if (_mobileap_is_enabled(MOBILE_AP_STATE_WIFI))
+			*type = MOBILE_AP_TYPE_WIFI;
+		else
+			*type = MOBILE_AP_TYPE_WIFI_AP;
 		return MOBILE_AP_ERROR_NONE;
 	} else if (subnet >= subnet_bt_min && subnet <= subnet_bt_max) {
 		*type = MOBILE_AP_TYPE_BT;
@@ -534,6 +567,7 @@ int _get_tethering_type_from_ip(const char *ip, mobile_ap_type_e *type)
 		return MOBILE_AP_ERROR_NONE;
 	}
 
-	ERR("Tethering type cannot be decided from %s\n", ip);
+	SERR("Tethering type cannot be decided from %s\n", ip);
+
 	return MOBILE_AP_ERROR_INVALID_PARAM;
 }

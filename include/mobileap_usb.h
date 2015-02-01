@@ -18,17 +18,13 @@
 #ifndef __MOBILEAP_USB_H__
 #define __MOBILEAP_USB_H__
 
-#include "mobileap_agent.h"
-
+#include "mobileap_softap.h"
 
 mobile_ap_error_code_e _disable_usb_tethering(TetheringObject *obj);
+gboolean _is_trying_usb_operation(void);
 
 gboolean tethering_enable_usb_tethering(TetheringObject *obj,
 						DBusGMethodInvocation *context);
 gboolean tethering_disable_usb_tethering(TetheringObject *obj,
-						DBusGMethodInvocation *context);
-gboolean tethering_get_usb_station_info(TetheringObject *obj,
-						DBusGMethodInvocation *context);
-gboolean tethering_get_usb_interface_info(TetheringObject *obj,
 						DBusGMethodInvocation *context);
 #endif /* __MOBILEAP_USB_H__ */

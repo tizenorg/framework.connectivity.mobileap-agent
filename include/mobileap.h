@@ -52,9 +52,12 @@ extern "C" {
 #define SIGNAL_NAME_USB_TETHER_OFF	"usb_off"
 #define SIGNAL_NAME_BT_TETHER_ON	"bluetooth_on"
 #define SIGNAL_NAME_BT_TETHER_OFF	"bluetooth_off"
+#define SIGNAL_NAME_WIFI_AP_ON		"wifi_ap_on"
+#define SIGNAL_NAME_WIFI_AP_OFF		"wifi_ap_off"
 #define SIGNAL_NAME_NO_DATA_TIMEOUT	"no_data_timeout"
 #define SIGNAL_NAME_LOW_BATTERY_MODE	"low_batt_mode"
 #define SIGNAL_NAME_FLIGHT_MODE		"flight_mode"
+#define SIGNAL_NAME_POWER_SAVE_MODE		"power_save_mode"
 #define SIGNAL_NAME_DHCP_STATUS		"dhcp_status"
 #define SIGNAL_NAME_SECURITY_TYPE_CHANGED	"security_type_changed"
 #define SIGNAL_NAME_SSID_VISIBILITY_CHANGED	"ssid_visibility_changed"
@@ -78,9 +81,12 @@ typedef enum {
 	E_SIGNAL_USB_TETHER_OFF,
 	E_SIGNAL_BT_TETHER_ON,
 	E_SIGNAL_BT_TETHER_OFF,
+	E_SIGNAL_WIFI_AP_ON,
+	E_SIGNAL_WIFI_AP_OFF,
 	E_SIGNAL_NO_DATA_TIMEOUT,
 	E_SIGNAL_LOW_BATTERY_MODE,
 	E_SIGNAL_FLIGHT_MODE,
+	E_SIGNAL_POWER_SAVE_MODE,
 	E_SIGNAL_SECURITY_TYPE_CHANGED,
 	E_SIGNAL_SSID_VISIBILITY_CHANGED,
 	E_SIGNAL_PASSPHRASE_CHANGED,
@@ -92,20 +98,21 @@ typedef enum {
 */
 #define MOBILE_AP_WIFI_CHANNEL		6	/**< Channel number */
 #define MOBILE_AP_WIFI_BSSID_LEN	6	/**< BSSID Length */
-#define MOBILE_AP_WIFI_SSID_MAX_LEN	31	/**< Maximum length of ssid */
+#define MOBILE_AP_WIFI_SSID_MAX_LEN	32	/**< Maximum length of ssid */
 #define MOBILE_AP_WIFI_KEY_MIN_LEN	8	/**< Minimum length of wifi key */
-#define MOBILE_AP_WIFI_KEY_MAX_LEN	63	/**< Maximum length of wifi key */
+#define MOBILE_AP_WIFI_PLAIN_TEXT_KEY_MAX_LEN	63	/**< Maximum length of wifi plain text key */
+#define MOBILE_AP_WIFI_KEY_MAX_LEN	64	/**< Maximum length of wifi hash key */
 
 /**
 * Common configuration
 */
-#define MOBILE_AP_MAX_WIFI_STA		8
-#define MOBILE_AP_MAX_BT_STA		7
-#define MOBILE_AP_MAX_USB_STA		1
-#define MOBILE_AP_MAX_CONNECTED_STA	16	/**< Maximum connected station. 8(Wi-Fi) + 7(BT) + 1(USB) */
+#define MOBILE_AP_MAX_WIFI_STA		10	/**< Firmware limitation (BCM4339) */
+#define MOBILE_AP_MAX_BT_STA		4	/**< Bluetooth specification (1 Master and 4 Slaves) */
+#define MOBILE_AP_MAX_USB_STA		1	/**< Only one usb connection is possible */
+#define MOBILE_AP_MAX_CONNECTED_STA	15	/**< Maximum connected station. 10(Wi-Fi) + 4(BT) + 1(USB) */
 
 #define MOBILE_AP_STR_INFO_LEN		20	/**< length of the ip or mac address*/
-#define MOBILE_AP_STR_HOSTNAME_LEN	32	/**< length of the hostname */
+#define MOBILE_AP_STR_HOSTNAME_LEN	33	/**< length of the hostname */
 #define MOBILE_AP_NAME_UNKNOWN		"UNKNOWN"
 
 /**
@@ -123,6 +130,7 @@ typedef enum {
 	MOBILE_AP_ERROR_DHCP,			/**< DHCP error */
 	MOBILE_AP_ERROR_IN_PROGRESS,		/**< Request is in progress */
 	MOBILE_AP_ERROR_NOT_PERMITTED,		/**< Operation is not permitted */
+	MOBILE_AP_ERROR_PERMISSION_DENIED,	/**< Permission Denied */
 
 	MOBILE_AP_ERROR_MAX
 } mobile_ap_error_code_e;
@@ -144,6 +152,9 @@ typedef enum {
 	MOBILE_AP_ENABLE_BT_TETHERING_CFM,	/* mobile_ap_enable_bt_tethering() */
 	MOBILE_AP_DISABLE_BT_TETHERING_CFM,	/* mobile_ap_disable_bt_tethering() */
 
+	MOBILE_AP_ENABLE_WIFI_AP_CFM,		/* mobile_ap_enable_wifi_ap() */
+	MOBILE_AP_DISABLE_WIFI_AP_CFM,		/* mobile_ap_disable_wifi_ap() */
+
 	MOBILE_AP_GET_STATION_INFO_CFM,		/* mobile_ap_get_station_info() */
 	MOBILE_AP_GET_DATA_PACKET_USAGE_CFM,	/* mobile_ap_get_data_packet_usage() */
 
@@ -158,6 +169,9 @@ typedef enum {
 	MOBILE_AP_ENABLED_BT_TETHERING_IND,	/* Turning on BT tethering indication */
 	MOBILE_AP_DISABLED_BT_TETHERING_IND,	/* Turning off BT tethering indication */
 
+	MOBILE_AP_ENABLED_WIFI_AP_IND,		/* Turning on WiFi AP indication */
+	MOBILE_AP_DISABLED_WIFI_AP_IND,		/* Turning off WiFi AP indication */
+
 	MOBILE_AP_STATION_CONNECT_IND,		/* Station connection indication */
 	MOBILE_AP_STATION_DISCONNECT_IND,	/* Station disconnection indication */
 	MOBILE_AP_USB_STATION_CONNECT_IND,
@@ -169,6 +183,7 @@ typedef enum {
 	MOBILE_AP_TYPE_WIFI,
 	MOBILE_AP_TYPE_USB,
 	MOBILE_AP_TYPE_BT,
+	MOBILE_AP_TYPE_WIFI_AP,
 	MOBILE_AP_TYPE_MAX,
 } mobile_ap_type_e;
 
@@ -181,7 +196,7 @@ typedef struct {
 	mobile_ap_type_e interface;                     /**< interface type */
 	char ip[MOBILE_AP_STR_INFO_LEN];                /**< assigned IP address */
 	char mac[MOBILE_AP_STR_INFO_LEN];               /**< MAC Address */
-	char hostname[MOBILE_AP_STR_HOSTNAME_LEN];      /**< alphanumeric name */
+	char *hostname;
 	time_t tm;	/**< connection time*/
 } mobile_ap_station_info_t;
 
