@@ -1,0 +1,38 @@
+<manifest>
+	<define>
+		<domain name="mobileap-agent"/>
+		<request>
+			<smack request="bt-service" type="rw"/>
+			<smack request="bt-service::platform" type="w"/>
+			<smack request="bt-service::public" type="w"/>
+			<smack request="secure-storage::tethering" type="rw"/>
+			<smack request="mdm-server::admin" type="r"/>
+			<smack request="mdm-server::security" type="r"/>
+			<smack request="mdm-server::restriction" type="r"/>
+			<smack request="deviced::display" type="rw"/>
+			<smack request="connman" type="rw"/>
+			<smack request="connman::get" type="rw"/>
+			<smack request="net-config" type="rw"/>
+			<smack request="alarm-server::alarm" type="w"/>
+			<smack request="system::use_internet" type="w"/>
+			<smack request="telephony_framework::api_ps_public" type="rw"/>
+		</request>
+		<permit>
+			<smack permit="system::use_internet" type="w"/>
+		</permit>
+	</define>
+	<request>
+		<domain name="mobileap-agent"/>
+	</request>
+	<assign>
+		<filesystem path="/usr/share/dbus-1/services/org.tizen.tethering.service" label="_"/>
+		<dbus name="org.tizen.tethering" own="mobileap-agent" bus="system">
+			<node name="/Tethering">
+				<interface name="org.tizen.tethering">
+					<annotation name="org.tizen.smack" value="tethering::dbus-access"/>
+				</interface>
+			</node>
+		</dbus>
+		<filesystem path="/opt/etc/dump.d/module.d/tethering_dump.sh" label="_" exec_label="none" />
+	</assign>
+</manifest>
