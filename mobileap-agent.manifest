@@ -6,9 +6,6 @@
 			<smack request="bt-service::platform" type="w"/>
 			<smack request="bt-service::public" type="w"/>
 			<smack request="secure-storage::tethering" type="rw"/>
-			<smack request="mdm-server::admin" type="r"/>
-			<smack request="mdm-server::security" type="r"/>
-			<smack request="mdm-server::restriction" type="r"/>
 			<smack request="deviced::display" type="rw"/>
 			<smack request="connman" type="rw"/>
 			<smack request="connman::get" type="rw"/>
@@ -16,16 +13,33 @@
 			<smack request="alarm-server::alarm" type="w"/>
 			<smack request="system::use_internet" type="w"/>
 			<smack request="telephony_framework::api_ps_public" type="rw"/>
+			<smack request="tizen::vconf::public::r" type="rwx"/>
+			<smack request="tizen::vconf::wifidirect" type="rwx"/>
+			<smack request="tizen::vconf::tethering::admin" type="rwx"/>
+			<smack request="tizen::vconf::setting::admin" type="rl"/>
+			<smack request="wifi-direct" type="w"/>
+			<smack request="syslogd" type="w"/>
+			<smack request="tizen::vconf::public::r::platform::rw" type="rl"/>
+			<smack request="device::app_logging" type="rw"/>
+			<smack request="device::sys_logging" type="rw"/>
+			<smack request="notification::db" type="rw"/>
+			<smack request="wpasupplicant" type="rwx"/>
+			<smack request="_" type="wx"/>
+			<smack request="sdbd" type="r"/>
+			<smack request="pkgmgr::db" type="rw"/>
+			<smack request="dbus" type="rx"/>
+			<smack request="data-provider-master::notification" type="w"/>
 		</request>
 		<permit>
 			<smack permit="system::use_internet" type="w"/>
+			<smack permit="dbus" type="rx"/>
 		</permit>
 	</define>
 	<request>
 		<domain name="mobileap-agent"/>
 	</request>
 	<assign>
-		<filesystem path="/usr/share/dbus-1/services/org.tizen.tethering.service" label="_"/>
+		<filesystem path="/usr/share/dbus-1/system-services/org.tizen.tethering.service" label="_"/>
 		<dbus name="org.tizen.tethering" own="mobileap-agent" bus="system">
 			<node name="/Tethering">
 				<interface name="org.tizen.tethering">

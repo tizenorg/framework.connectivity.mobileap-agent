@@ -26,10 +26,11 @@ ENDIF("${CMAKE_BUILD_TYPE}" STREQUAL "")
 
 MESSAGE("Build type: ${CMAKE_BUILD_TYPE}")
 
-INCLUDE_DIRECTORIES(${INCLUDE_DIR})
+INCLUDE_DIRECTORIES(${INCLUDE_DIR} ${CMAKE_SOURCE_DIR})
 
 INCLUDE(FindPkgConfig)
-pkg_check_modules(pkgs REQUIRED gio-2.0 dlog dbus-glib-1 deviced vconf notification capi-network-connection capi-network-bluetooth appcore-common capi-network-wifi capi-network-wifi-direct alarm-service appsvc libssl)
+pkg_check_modules(pkgs REQUIRED gio-2.0 gio-unix-2.0 dbus-1 dlog  deviced vconf notification capi-network-connection capi-network-bluetooth appcore-common capi-network-wifi capi-network-wifi-direct alarm-service appsvc libssl)
+
 FOREACH(flag ${pkgs_CFLAGS})
 	SET(EXTRA_CFLAGS "${EXTRA_CFLAGS} ${flag}")
 ENDFOREACH(flag)
@@ -44,22 +45,35 @@ IF("${ARCH}" STREQUAL "arm")
 	ADD_DEFINITIONS("-DTARGET")
 	MESSAGE("add -DTARGET")
 ENDIF("${ARCH}" STREQUAL "arm")
-
-FIND_PROGRAM(DBUS_BINDING_TOOL NAMES dbus-binding-tool)
-EXEC_PROGRAM("${DBUS_BINDING_TOOL}" ARGS "--prefix=tethering ${INCLUDE_DIR}/tethering-dbus-interface.xml --mode=glib-server --output=${INCLUDE_DIR}/tethering-server-stub.h")
+IF(TIZEN_TV)
+	ADD_DEFINITIONS(-DTIZEN_TV)
+ENDIF(TIZEN_TV)
 
 ADD_DEFINITIONS("-DPREFIX=\"${CMAKE_INSTALL_PREFIX}\"")
 ADD_DEFINITIONS("-DVENDOR=\"${APP_VENDOR}\"")
 ADD_DEFINITIONS("-DAPPNAME=\"${APP_NAME}\"")
 ADD_DEFINITIONS("-DAPP_DIR=\"${APP_DIR}\"")
 
+IF(TIZEN_WLAN_BOARD_SPRD)
+	ADD_DEFINITIONS(-DTIZEN_WLAN_BOARD_SPRD)
+ENDIF(TIZEN_WLAN_BOARD_SPRD)
+
 SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--as-needed -pie")
 
-ADD_EXECUTABLE(${PROJECT_NAME} ${SRCS})
-SET(CMAKE_EXE_LINKER_FLAGS "-Wl,--as-needed -pie")
+ADD_CUSTOM_COMMAND(
+	WORKING_DIRECTORY
+	OUTPUT ${CMAKE_BINARY_DIR}/tethering-server-stub.c
+	COMMAND gdbus-codegen --interface-prefix org.tizen.
+			--generate-c-code tethering-server-stub
+			--c-generate-object-manager
+			--generate-docbook generated-docs
+			${INCLUDE_DIR}/tethering-dbus-interface.xml
+			COMMENT "Generating GDBus .c/.h")
+
+ADD_EXECUTABLE(${PROJECT_NAME} ${SRCS} ${CMAKE_BINARY_DIR}/tethering-server-stub.c)
 TARGET_LINK_LIBRARIES(${PROJECT_NAME} ${pkgs_LDFLAGS})
 
 INSTALL(TARGETS ${PROJECT_NAME} DESTINATION bin)
-INSTALL(FILES ${CMAKE_CURRENT_SOURCE_DIR}/packaging/org.tizen.tethering.service DESTINATION share/dbus-1/services)
+INSTALL(FILES ${CMAKE_CURRENT_SOURCE_DIR}/packaging/org.tizen.tethering.service DESTINATION share/dbus-1/system-services)
 INSTALL(FILES ${CMAKE_CURRENT_SOURCE_DIR}/tethering_dump.sh DESTINATION /opt/etc/dump.d/module.d/)
 

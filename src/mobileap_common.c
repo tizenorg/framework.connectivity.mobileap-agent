@@ -27,17 +27,9 @@
 #include <arpa/inet.h>
 
 #include <dbus/dbus.h>
-#include <dbus/dbus-glib.h>
-#include <dbus/dbus-glib-lowlevel.h>
 
 #include "mobileap_notification.h"
 #include "mobileap_common.h"
-
-#define TETHERING_OBJECT_GET_CLASS(obj) \
-	(G_TYPE_INSTANCE_GET_CLASS ((obj), \
-	TETHERING_TYPE_OBJECT , TetheringObjectClass))
-
-extern DBusConnection *tethering_conn;
 
 static GSList *station_list = NULL;
 
@@ -65,61 +57,23 @@ gint _slist_find_station_by_ip_addr(gconstpointer a, gconstpointer b)
 	return g_ascii_strcasecmp(si->ip, ip_addr);
 }
 
-void _emit_mobileap_dbus_signal(TetheringObject *obj,
-				mobile_ap_sig_e num, const gchar *message)
-{
-	TetheringObjectClass *klass = TETHERING_OBJECT_GET_CLASS(obj);
-
-	SDBG("Emitting signal id [%d], with message [%s]\n", num, message);
-
-	if (num == E_SIGNAL_WIFI_TETHER_ON ||
-			num == E_SIGNAL_USB_TETHER_ON || num == E_SIGNAL_BT_TETHER_ON) {
-		_create_tethering_active_noti();
-	}
-
-	g_signal_emit(obj, klass->signals[num], 0, message);
-}
-
 void _send_dbus_station_info(const char *member, mobile_ap_station_info_t *info)
 {
-	if (tethering_conn == NULL)
-		return;
 
+	DBG("+\n");
 	if (member == NULL || info == NULL) {
 		ERR("Invalid param\n");
 		return;
 	}
-
-	DBusMessage *msg = NULL;
-	char *ip = info->ip;
-	char *mac = info->mac;
-	char *hostname = info->hostname;
-
-	msg = dbus_message_new_signal(TETHERING_SERVICE_OBJECT_PATH,
-			TETHERING_SERVICE_INTERFACE,
-			SIGNAL_NAME_DHCP_STATUS);
-	if (!msg) {
-		ERR("Unable to allocate D-Bus signal\n");
+	Tethering *obj = _get_tethering_obj();
+	if (obj == NULL) {
+		ERR("tethering object is null\n");
 		return;
 	}
-
-	if (!dbus_message_append_args(msg,
-				DBUS_TYPE_STRING, &member,
-				DBUS_TYPE_UINT32, &info->interface,
-				DBUS_TYPE_STRING, &ip,
-				DBUS_TYPE_STRING, &mac,
-				DBUS_TYPE_STRING, &hostname,
-				DBUS_TYPE_UINT32, &info->tm,
-				DBUS_TYPE_INVALID)) {
-		ERR("Event sending failed\n");
-		dbus_message_unref(msg);
-		return;
-	}
-
-	dbus_connection_send(tethering_conn, msg, NULL);
-	dbus_message_unref(msg);
-
-	return;
+	DBG("signal is   %s", member);
+	tethering_emit_dhcp_status(obj, member, info->interface, info->ip, info->mac,
+			info->hostname, info->tm);
+	DBG("-\n");
 }
 
 void _update_station_count(int count)
@@ -340,16 +294,46 @@ int _get_station_count(gconstpointer data, GCompareFunc func, int *count)
 	return MOBILE_AP_ERROR_NONE;
 }
 
-int _station_info_foreach(GFunc func, void *user_data)
+GVariant * _station_info_foreach()
 {
-	if (func == NULL) {
-		ERR("Invalid param\n");
-		return MOBILE_AP_ERROR_INVALID_PARAM;
+	GSList *l = NULL;
+	GVariant *params = NULL;
+	GVariantBuilder *inner_builder;
+	GVariantBuilder *outer_builder;
+	mobile_ap_station_info_t *st = NULL;
+
+	outer_builder = g_variant_builder_new(G_VARIANT_TYPE ("a(a{sv})"));
+
+	for (l = station_list; l != NULL; l = g_slist_next(l)) {
+		st = (mobile_ap_station_info_t *)l->data;
+
+		inner_builder = g_variant_builder_new(G_VARIANT_TYPE ("a{sv}"));
+		g_variant_builder_add(inner_builder, "{sv}", "Type",
+					g_variant_new_int32(st->interface));
+		g_variant_builder_add(inner_builder, "{sv}", "IP",
+					g_variant_new_string(st->ip));
+		g_variant_builder_add(inner_builder, "{sv}", "MAC",
+					g_variant_new_string(st->mac));
+		if (st->hostname) {
+			g_variant_builder_add(inner_builder, "{sv}", "Name",
+						g_variant_new_string(st->hostname));
+		}
+		g_variant_builder_add(inner_builder, "{sv}", "Time",
+					g_variant_new_int32(st->tm));
+
+		g_variant_builder_add(outer_builder, "(@a{sv})", g_variant_builder_end(inner_builder));
+
+		g_variant_builder_unref(inner_builder);
 	}
 
-	g_slist_foreach(station_list, func, user_data);
-
-	return MOBILE_AP_ERROR_NONE;
+	params = g_variant_new("(@a(a{sv}))", g_variant_builder_end(outer_builder));
+	if (params == NULL) {
+		ERR("params IS NULL\n");
+	} else {
+		SDBG("outer builder print  %s", g_variant_print(params, TRUE));
+	}
+	g_variant_builder_unref(outer_builder);
+	return params;
 }
 
 int _add_interface_routing(const char *interface, const in_addr_t gateway)

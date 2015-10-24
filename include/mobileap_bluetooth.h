@@ -23,13 +23,13 @@
 #define PS_RECHECK_INTERVAL 500
 #define PS_RECHECK_COUNT_MAX 5
 
-void _bt_get_remote_device_name(TetheringObject *obj, const char *mac, char **name);
-mobile_ap_error_code_e _disable_bt_tethering(TetheringObject *obj);
+void _bt_get_remote_device_name(const char *mac, char **name);
+mobile_ap_error_code_e _disable_bt_tethering(Tethering *obj);
 gboolean _is_trying_bt_operation(void);
 
-gboolean tethering_enable_bt_tethering(TetheringObject *obj,
-		DBusGMethodInvocation *context);
-gboolean tethering_disable_bt_tethering(TetheringObject *obj,
-		DBusGMethodInvocation *context);
+gboolean tethering_enable_bt_tethering(Tethering *obj,
+		GDBusMethodInvocation *context);
+gboolean tethering_disable_bt_tethering(Tethering *obj,
+		GDBusMethodInvocation *context);
 
 #endif /* __MOBILEAP_BLUETOOTH_H__ */

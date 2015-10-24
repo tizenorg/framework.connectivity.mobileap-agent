@@ -54,7 +54,7 @@ typedef struct {
 	unsigned short new_dest_port;
 } port_forward_info_s;
 
-static TetheringObject *obj = NULL;
+static Tethering *obj = NULL;
 static connection_h connection = NULL;
 static tethering_cellular_profile_s c_prof = {NULL, __NO_SERVICE};
 static guint net_timeout_id;
@@ -89,9 +89,11 @@ static mobile_ap_error_code_e __get_conn_error(int conn_error)
 		err = MOBILE_AP_ERROR_ALREADY_ENABLED;
 		break;
 
+#ifndef TIZEN_TV
 	case CONNECTION_ERROR_PERMISSION_DENIED:
 		err = MOBILE_AP_ERROR_PERMISSION_DENIED;
 		break;
+#endif
 
 	case CONNECTION_ERROR_DHCP_FAILED:
 		err = MOBILE_AP_ERROR_DHCP;
@@ -352,9 +354,7 @@ static void __handle_open_network_error(void)
 	ret = _disable_usb_tethering(obj);
 	DBG("_disable_usb_tethering returns %d\n", ret);
 
-	_emit_mobileap_dbus_signal(obj, E_SIGNAL_NET_CLOSED, NULL);
-
-	return;
+	tethering_emit_net_closed(obj);
 }
 
 static gboolean __is_equal_profile(connection_profile_h a, connection_profile_h b)
@@ -1128,7 +1128,7 @@ gboolean _init_network(void *user_data)
 
 	int ret;
 
-	obj = (TetheringObject *)user_data;
+	obj = (Tethering *)user_data;
 
 	ret = connection_create(&connection);
 	if (ret != CONNECTION_ERROR_NONE) {

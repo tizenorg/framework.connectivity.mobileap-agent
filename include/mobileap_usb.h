@@ -20,11 +20,11 @@
 
 #include "mobileap_softap.h"
 
-mobile_ap_error_code_e _disable_usb_tethering(TetheringObject *obj);
+mobile_ap_error_code_e _disable_usb_tethering(Tethering *obj);
 gboolean _is_trying_usb_operation(void);
 
-gboolean tethering_enable_usb_tethering(TetheringObject *obj,
-						DBusGMethodInvocation *context);
-gboolean tethering_disable_usb_tethering(TetheringObject *obj,
-						DBusGMethodInvocation *context);
+gboolean tethering_enable_usb_tethering(Tethering *obj,
+						GDBusMethodInvocation *context);
+gboolean tethering_disable_usb_tethering(Tethering *obj,
+						GDBusMethodInvocation *context);
 #endif /* __MOBILEAP_USB_H__ */

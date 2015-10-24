@@ -22,23 +22,6 @@
 extern "C" {
 #endif
 
-/* Client / Agent common */
-#define DBUS_STRUCT_UINT_STRING (dbus_g_type_get_struct ("GValueArray", \
-			G_TYPE_UINT, G_TYPE_STRING, G_TYPE_INVALID))
-
-#define DBUS_STRUCT_STATIONS (dbus_g_type_get_struct ("GValueArray", \
-			G_TYPE_UINT, G_TYPE_STRING, G_TYPE_STRING, \
-			G_TYPE_STRING, G_TYPE_UINT, G_TYPE_INVALID))
-
-#define DBUS_STRUCT_STATION (dbus_g_type_get_struct ("GValueArray", \
-			G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, \
-			G_TYPE_INVALID))
-
-#define DBUS_STRUCT_INTERFACE (dbus_g_type_get_struct ("GValueArray", \
-			G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, \
-			G_TYPE_STRING, G_TYPE_INVALID))
-
-
 #define TETHERING_SERVICE_OBJECT_PATH	"/Tethering"
 #define TETHERING_SERVICE_NAME		"org.tizen.tethering"
 #define TETHERING_SERVICE_INTERFACE	"org.tizen.tethering"
@@ -58,11 +41,10 @@ extern "C" {
 #define SIGNAL_NAME_LOW_BATTERY_MODE	"low_batt_mode"
 #define SIGNAL_NAME_FLIGHT_MODE		"flight_mode"
 #define SIGNAL_NAME_POWER_SAVE_MODE		"power_save_mode"
-#define SIGNAL_NAME_DHCP_STATUS		"dhcp_status"
 #define SIGNAL_NAME_SECURITY_TYPE_CHANGED	"security_type_changed"
 #define SIGNAL_NAME_SSID_VISIBILITY_CHANGED	"ssid_visibility_changed"
 #define SIGNAL_NAME_PASSPHRASE_CHANGED		"passphrase_changed"
-
+#define SIGNAL_NAME_DHCP_STATUS		"dhcp_status"
 #define SIGNAL_MSG_NOT_AVAIL_INTERFACE	"Interface is not available"
 #define SIGNAL_MSG_TIMEOUT		"There is no connection for a while"
 #define SIGNAL_MSG_SSID_VISIBLE		"ssid_visible"
@@ -114,7 +96,6 @@ typedef enum {
 #define MOBILE_AP_STR_INFO_LEN		20	/**< length of the ip or mac address*/
 #define MOBILE_AP_STR_HOSTNAME_LEN	33	/**< length of the hostname */
 #define MOBILE_AP_NAME_UNKNOWN		"UNKNOWN"
-
 /**
 * Mobile AP error code
 */

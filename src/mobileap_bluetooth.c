@@ -18,9 +18,10 @@
 #include <stdio.h>
 #include <glib.h>
 #include <dbus/dbus.h>
-#include <dbus/dbus-glib.h>
-#include <dbus/dbus-glib-lowlevel.h>
 #include <bluetooth.h>
+#ifndef TIZEN_TV
+#include <bluetooth_internal.h>
+#endif
 
 #include "mobileap_softap.h"
 #include "mobileap_common.h"
@@ -40,7 +41,7 @@ static __bt_remote_device_s __bt_remote_devices[MOBILE_AP_MAX_BT_STA] = {
 	{NULL, NULL, IP_ADDRESS_BT_3},
 	{NULL, NULL, IP_ADDRESS_BT_4}};
 
-static DBusGMethodInvocation *g_context = NULL;
+static GDBusMethodInvocation *g_context = NULL;
 
 static void __bt_nap_connection_changed(bool connected, const char *remote_address,
 				const char *interface_name, void *user_data);
@@ -148,7 +149,7 @@ static void __del_bt_remote_all(void)
 	return;
 }
 
-static mobile_ap_error_code_e __init_bt(TetheringObject *obj)
+static mobile_ap_error_code_e __init_bt(Tethering *obj)
 {
 	int ret;
 
@@ -200,7 +201,7 @@ static gboolean __is_bt_adapter_on(void)
 		return FALSE;
 }
 
-gboolean __bt_adapter_timeout_cb(gpointer data)
+gboolean __bt_adapter_timeout_cb(Tethering *obj)
 {
 	DBG("+\n");
 
@@ -216,8 +217,7 @@ gboolean __bt_adapter_timeout_cb(gpointer data)
 			ERR("_enable_bt_tethering() is failed because of bt_adapter_eanbled() failed:n");
 			_mobileap_clear_state(MOBILE_AP_STATE_BT);
 			__deinit_bt();
-			dbus_g_method_return(g_context,
-					MOBILE_AP_ENABLE_BT_TETHERING_CFM, MOBILE_AP_ERROR_INTERNAL);
+			tethering_complete_enable_bt_tethering(obj, g_context, MOBILE_AP_ERROR_INTERNAL);
 			g_context = NULL;
 			_unblock_device_sleep();
 			DBG("-\n");
@@ -229,9 +229,11 @@ gboolean __bt_adapter_timeout_cb(gpointer data)
 	}
 }
 
-static mobile_ap_error_code_e __turn_on_bt_adapter(TetheringObject *obj)
+static mobile_ap_error_code_e __turn_on_bt_adapter(gpointer data)
 {
 	int ret;
+
+	Tethering *obj = (Tethering *)data;
 
 	ret = bt_adapter_enable();
 	if (ret == BT_ERROR_NOW_IN_PROGRESS) {
@@ -239,22 +241,24 @@ static mobile_ap_error_code_e __turn_on_bt_adapter(TetheringObject *obj)
 			g_source_remove(__recheck_bt_adapter_timer);
 		}
 		__recheck_bt_adapter_timer = g_timeout_add(PS_RECHECK_INTERVAL,
-				__bt_adapter_timeout_cb, NULL);
+				__bt_adapter_timeout_cb, obj);
 		return MOBILE_AP_ERROR_NONE;
 	}
 
 	if (ret != BT_ERROR_NONE && ret != BT_ERROR_ALREADY_DONE) {
 		ERR("bt_adapter_enable is failed : %d\n", ret);
+#ifndef TIZEN_TV
 		if (ret == BT_ERROR_PERMISSION_DENIED)
 			return MOBILE_AP_ERROR_PERMISSION_DENIED;
 		else
+#endif
 			return MOBILE_AP_ERROR_RESOURCE;
 	}
 
 	return MOBILE_AP_ERROR_NONE;
 }
 
-static mobile_ap_error_code_e __turn_on_bt_nap(TetheringObject *obj)
+static mobile_ap_error_code_e __turn_on_bt_nap(Tethering *obj)
 {
 	int bt_ret = BT_ERROR_NONE;
 
@@ -268,9 +272,11 @@ static mobile_ap_error_code_e __turn_on_bt_nap(TetheringObject *obj)
 	if (bt_ret != BT_ERROR_NONE && bt_ret != BT_ERROR_ALREADY_DONE) {
 		bt_nap_unset_connection_state_changed_cb();
 		ERR("bt_nap_activate is failed : %d\n", bt_ret);
+#ifndef TIZEN_TV
 		if (bt_ret == BT_ERROR_PERMISSION_DENIED)
 			return MOBILE_AP_ERROR_PERMISSION_DENIED;
 		else
+#endif
 			return MOBILE_AP_ERROR_RESOURCE;
 	}
 
@@ -281,11 +287,11 @@ static void __turn_off_bt_nap(void)
 {
 	int bt_ret;
 
-	bt_ret = bt_nap_disconnect_all();
+	bt_ret = bt_nap_deactivate();
 	if (bt_ret != BT_ERROR_NONE)
-		ERR("bt_nap_disconnect_all is failed : %d\n", bt_ret);
+		ERR("bt_nap_deactivate is failed : %d\n", bt_ret);
 	else
-		DBG("bt_nap_disconnect_all is called\n");
+		DBG("bt_nap_deactivate is called\n");
 
 	bt_ret = bt_nap_unset_connection_state_changed_cb();
 	if (bt_ret != BT_ERROR_NONE)
@@ -294,7 +300,7 @@ static void __turn_off_bt_nap(void)
 	return;
 }
 
-mobile_ap_error_code_e _enable_bt_tethering(TetheringObject *obj)
+mobile_ap_error_code_e _enable_bt_tethering(Tethering *obj)
 {
 	mobile_ap_error_code_e ret = MOBILE_AP_ERROR_NONE;
 
@@ -309,24 +315,25 @@ mobile_ap_error_code_e _enable_bt_tethering(TetheringObject *obj)
 		return MOBILE_AP_ERROR_RESOURCE;
 	}
 
-	ret = _init_tethering(obj);
+	ret = _init_tethering();
 	if (ret != MOBILE_AP_ERROR_NONE) {
 		return ret;
 	}
 
 	ret = __turn_on_bt_nap(obj);
 	if (ret != MOBILE_AP_ERROR_NONE) {
-		_deinit_tethering(obj);
+		_deinit_tethering();
 		return ret;
 	}
 	_delete_timeout_noti();
 	_init_timeout_cb(MOBILE_AP_TYPE_BT, (void *)obj);
 	_start_timeout_cb(MOBILE_AP_TYPE_BT, time(NULL) + TETHERING_CONN_TIMEOUT);
 
+	DBG("-\n");
 	return ret;
 }
 
-mobile_ap_error_code_e _disable_bt_tethering(TetheringObject *obj)
+mobile_ap_error_code_e _disable_bt_tethering(Tethering *obj)
 {
 	int ret = BT_ERROR_NONE;
 	if (!_mobileap_is_enabled(MOBILE_AP_STATE_BT)) {
@@ -347,7 +354,7 @@ mobile_ap_error_code_e _disable_bt_tethering(TetheringObject *obj)
 	__del_bt_remote_all();
 	_deinit_timeout_cb(MOBILE_AP_TYPE_BT);
 
-	_deinit_tethering(obj);
+	_deinit_tethering();
 	_mobileap_clear_state(MOBILE_AP_STATE_BT);
 	_unblock_device_sleep();
 
@@ -417,7 +424,7 @@ static void __bt_adapter_state_changed(int result, bt_adapter_state_e adapter_st
 		return;
 
 	int ret = MOBILE_AP_ERROR_RESOURCE;
-	TetheringObject *obj = (TetheringObject *)user_data;
+	Tethering *obj = (Tethering *)user_data;
 
 	if (result != BT_ERROR_NONE) {
 		ERR("BT Adapter operation is failed : %d\n", result);
@@ -428,8 +435,7 @@ static void __bt_adapter_state_changed(int result, bt_adapter_state_e adapter_st
 			"enabled" : "disabled");
 	if (adapter_state == BT_ADAPTER_DISABLED) {
 		_disable_bt_tethering(obj);
-		_emit_mobileap_dbus_signal(obj, E_SIGNAL_BT_TETHER_OFF,
-				SIGNAL_MSG_NOT_AVAIL_INTERFACE);
+		tethering_emit_bluetooth_off(obj, SIGNAL_MSG_NOT_AVAIL_INTERFACE);
 		return;
 	} else {
 		ret = _enable_bt_tethering(obj);
@@ -439,9 +445,9 @@ static void __bt_adapter_state_changed(int result, bt_adapter_state_e adapter_st
 			goto FAIL;
 		}
 
-		_emit_mobileap_dbus_signal(obj, E_SIGNAL_BT_TETHER_ON, NULL);
-		dbus_g_method_return(g_context,
-				MOBILE_AP_ENABLE_BT_TETHERING_CFM, ret);
+		tethering_emit_bluetooth_on(obj);
+		_create_tethering_active_noti();
+		tethering_complete_enable_bt_tethering(obj, g_context, ret);
 		__handle_bt_adapter_visibility();
 		g_context = NULL;
 		_unblock_device_sleep();
@@ -450,8 +456,7 @@ static void __bt_adapter_state_changed(int result, bt_adapter_state_e adapter_st
 	}
 
 FAIL:
-	dbus_g_method_return(g_context,
-			MOBILE_AP_ENABLE_BT_TETHERING_CFM, ret);
+	tethering_complete_enable_bt_tethering(obj, g_context, ret);
 	g_context = NULL;
 	_mobileap_clear_state(MOBILE_AP_STATE_BT);
 	_unblock_device_sleep();
@@ -459,9 +464,9 @@ FAIL:
 	return;
 }
 
-void _bt_get_remote_device_name(TetheringObject *obj, const char *mac, char **name)
+void _bt_get_remote_device_name(const char *mac, char **name)
 {
-	if (obj == NULL || mac == NULL || name == NULL) {
+	if (mac == NULL || name == NULL) {
 		ERR("Invalid param\n");
 		return;
 	}
@@ -524,8 +529,9 @@ static void __handle_bt_adapter_visibility()
 	bt_adapter_set_visibility_mode_changed_cb(__bt_adapter_visibility_changed_cb, NULL);
 	DBG("-\n");
 }
-gboolean tethering_enable_bt_tethering(TetheringObject *obj,
-		DBusGMethodInvocation *context)
+
+gboolean tethering_enable_bt_tethering(Tethering *obj,
+		GDBusMethodInvocation *context)
 {
 	mobile_ap_error_code_e ret;
 	gboolean ret_val = FALSE;
@@ -537,8 +543,7 @@ gboolean tethering_enable_bt_tethering(TetheringObject *obj,
 
 	if (g_context) {
 		DBG("It is turnning on\n");
-		dbus_g_method_return(context,
-				MOBILE_AP_ENABLE_BT_TETHERING_CFM,
+		tethering_complete_enable_bt_tethering(obj, context,
 				MOBILE_AP_ERROR_IN_PROGRESS);
 		return FALSE;
 	}
@@ -559,7 +564,7 @@ gboolean tethering_enable_bt_tethering(TetheringObject *obj,
 
 	if (__is_bt_adapter_on() == FALSE) {
 		DBG("Bluetooth is deactivated\n");
-		if (__turn_on_bt_adapter(obj) != MOBILE_AP_ERROR_NONE) {
+		if (__turn_on_bt_adapter((gpointer)obj) != MOBILE_AP_ERROR_NONE) {
 			ERR("__turn_on_bt_adapter is failed\n");
 			ret = MOBILE_AP_ERROR_INTERNAL;
 			_mobileap_clear_state(MOBILE_AP_STATE_BT);
@@ -576,23 +581,23 @@ gboolean tethering_enable_bt_tethering(TetheringObject *obj,
 		_mobileap_clear_state(MOBILE_AP_STATE_BT);
 		__deinit_bt();
 	} else {
-		_emit_mobileap_dbus_signal(obj, E_SIGNAL_BT_TETHER_ON, NULL);
+		tethering_emit_bluetooth_on(obj);
+		_create_tethering_active_noti();
 		__handle_bt_adapter_visibility();
 		ret_val = TRUE;
 	}
 
 DONE:
-	dbus_g_method_return(g_context,
-			MOBILE_AP_ENABLE_BT_TETHERING_CFM, ret);
+	tethering_complete_enable_bt_tethering(obj, g_context, ret);
 	g_context = NULL;
 
 	_unblock_device_sleep();
-
+	DBG("-\n");
 	return ret_val;
 }
 
-gboolean tethering_disable_bt_tethering(TetheringObject *obj,
-		DBusGMethodInvocation *context)
+gboolean tethering_disable_bt_tethering(Tethering *obj,
+		GDBusMethodInvocation *context)
 {
 	mobile_ap_error_code_e ret;
 
@@ -603,12 +608,14 @@ gboolean tethering_disable_bt_tethering(TetheringObject *obj,
 
 	ret = _disable_bt_tethering(obj);
 	if (ret != MOBILE_AP_ERROR_NONE) {
-		dbus_g_method_return(context, MOBILE_AP_DISABLE_BT_TETHERING_CFM, ret);
+		tethering_complete_disable_bt_tethering(obj, context,
+				MOBILE_AP_DISABLE_BT_TETHERING_CFM, ret);
 		return FALSE;
 	}
 
-	_emit_mobileap_dbus_signal(obj, E_SIGNAL_BT_TETHER_OFF, NULL);
-	dbus_g_method_return(context, MOBILE_AP_DISABLE_BT_TETHERING_CFM, ret);
+	tethering_emit_bluetooth_off(obj, NULL);
+	tethering_complete_disable_bt_tethering(obj, context,
+			MOBILE_AP_DISABLE_BT_TETHERING_CFM, ret);
 	return TRUE;
 }
 

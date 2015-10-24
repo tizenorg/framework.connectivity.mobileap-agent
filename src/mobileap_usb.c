@@ -17,8 +17,6 @@
 
 #include <glib.h>
 #include <dbus/dbus.h>
-#include <dbus/dbus-glib.h>
-#include <dbus/dbus-glib-lowlevel.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
@@ -30,7 +28,7 @@
 #include "mobileap_common.h"
 #include "mobileap_usb.h"
 
-static DBusGMethodInvocation *g_context = NULL;
+static GDBusMethodInvocation *g_context = NULL;
 static gboolean in_progress = FALSE;
 static GDBusConnection *conn = NULL;
 static guint subscription_id = 0;
@@ -54,7 +52,7 @@ static void __usb_device_state_change_cb(GDBusConnection *connection,
 	GVariant *parameters, gpointer user_data)
 {
 	unsigned int value = 0;
-	TetheringObject *obj = (TetheringObject *)user_data;
+	Tethering *obj = (Tethering *)user_data;
 
 	if (NULL == parameters || NULL == obj) {
 		ERR("Paramters Invalid \n");
@@ -76,12 +74,10 @@ static void __usb_device_state_change_cb(GDBusConnection *connection,
 		_disable_usb_tethering(obj);
 
 		if (g_context) {
-			dbus_g_method_return(g_context, MOBILE_AP_ENABLE_USB_TETHERING_CFM,
-				MOBILE_AP_ERROR_RESOURCE);
+			tethering_complete_enable_usb_tethering(obj, g_context, MOBILE_AP_ERROR_RESOURCE);
 			g_context = NULL;
 		} else {
-			_emit_mobileap_dbus_signal(obj, E_SIGNAL_USB_TETHER_OFF,
-					SIGNAL_MSG_NOT_AVAIL_INTERFACE);
+			tethering_emit_usb_off(obj, SIGNAL_MSG_NOT_AVAIL_INTERFACE);
 		}
 	}
 
@@ -139,9 +135,9 @@ static void __handle_usb_disconnect_cb(keynode_t *key, void *data)
 		return;
 	}
 
-	char *vconf_name;
+	char *vconf_name = NULL;
 	int vconf_key;
-	TetheringObject *obj = (TetheringObject *)data;
+	Tethering *obj = (Tethering *)data;
 
 	if (!_mobileap_is_enabled(MOBILE_AP_STATE_USB)) {
 		ERR("USB tethering is not enabled\n");
@@ -154,7 +150,15 @@ static void __handle_usb_disconnect_cb(keynode_t *key, void *data)
 	}
 
 	vconf_name = vconf_keynode_get_name(key);
+	if (vconf_name == NULL) {
+		ERR("vconf_keynode_get_name is failed\n");
+		return;
+	}
 	vconf_key = vconf_keynode_get_int(key);
+	if (vconf_key < 0) {
+		ERR("vconf_keynode_get_int is failed\n");
+		return;
+	}
 	SDBG("key = %s, value = %d(int)\n", vconf_name, vconf_key);
 
 	/*
@@ -172,13 +176,12 @@ static void __handle_usb_disconnect_cb(keynode_t *key, void *data)
 	_disable_usb_tethering(obj);
 
 	if (g_context) {
-		dbus_g_method_return(g_context,
-				MOBILE_AP_ENABLE_USB_TETHERING_CFM,
-				MOBILE_AP_ERROR_RESOURCE);
+		g_dbus_method_invocation_return_value(g_context,
+				g_variant_new("(uu)", MOBILE_AP_ENABLE_USB_TETHERING_CFM,
+						MOBILE_AP_ERROR_RESOURCE));
 		g_context = NULL;
 	} else {
-		_emit_mobileap_dbus_signal(obj, E_SIGNAL_USB_TETHER_OFF,
-				SIGNAL_MSG_NOT_AVAIL_INTERFACE);
+		tethering_emit_usb_off(obj, SIGNAL_MSG_NOT_AVAIL_INTERFACE);
 	}
 
 	return;
@@ -191,7 +194,7 @@ static void __handle_usb_mode_change(keynode_t *key, void *data)
 		return;
 	}
 
-	TetheringObject *obj = (TetheringObject *)data;
+	Tethering *obj = (Tethering *)data;
 	int ret;
 	int vconf_key;
 	guint idle_id;
@@ -227,21 +230,17 @@ static void __handle_usb_mode_change(keynode_t *key, void *data)
 			ERR("USB Mode is changed suddenly\n");
 			_disable_usb_tethering(obj);
 			if (g_context) {
-				dbus_g_method_return(g_context,
-						MOBILE_AP_ENABLE_USB_TETHERING_CFM,
-						MOBILE_AP_ERROR_RESOURCE);
+				tethering_complete_enable_usb_tethering(obj, g_context, MOBILE_AP_ERROR_RESOURCE);
 				g_context = NULL;
 			}
 			return;
 		}
 		_add_interface_routing(USB_IF, IP_ADDRESS_USB);
 		_add_routing_rule(USB_IF);
-
-		_emit_mobileap_dbus_signal(obj, E_SIGNAL_USB_TETHER_ON, NULL);
+		tethering_emit_usb_on(obj);
+		_create_tethering_active_noti();
 		if (g_context) {
-			dbus_g_method_return(g_context,
-					MOBILE_AP_ENABLE_USB_TETHERING_CFM,
-					MOBILE_AP_ERROR_NONE);
+			tethering_complete_enable_usb_tethering(obj, g_context, MOBILE_AP_ERROR_NONE);
 			g_context = NULL;
 		}
 	} else {
@@ -253,11 +252,9 @@ static void __handle_usb_mode_change(keynode_t *key, void *data)
 		DBG("USB tethering is disabled\n");
 		vconf_ignore_key_changed(VCONFKEY_SETAPPL_USB_MODE_INT,
 				__handle_usb_mode_change);
-		_emit_mobileap_dbus_signal(obj, E_SIGNAL_USB_TETHER_OFF, NULL);
+		tethering_emit_usb_off(obj, NULL);
 		if (g_context) {
-			dbus_g_method_return(g_context,
-					MOBILE_AP_DISABLE_USB_TETHERING_CFM,
-					MOBILE_AP_ERROR_NONE);
+			tethering_complete_disable_usb_tethering(obj, g_context, MOBILE_AP_DISABLE_USB_TETHERING_CFM, NULL);
 			g_context = NULL;
 		}
 
@@ -268,7 +265,7 @@ static void __handle_usb_mode_change(keynode_t *key, void *data)
 	}
 }
 
-mobile_ap_error_code_e _enable_usb_tethering(TetheringObject *obj)
+mobile_ap_error_code_e _enable_usb_tethering(Tethering *obj)
 {
 	mobile_ap_error_code_e ret = MOBILE_AP_ERROR_NONE;
 	int vconf_ret;
@@ -298,7 +295,7 @@ mobile_ap_error_code_e _enable_usb_tethering(TetheringObject *obj)
 		goto FAIL;
 	}
 
-	ret = _init_tethering(obj);
+	ret = _init_tethering();
 	if (ret != MOBILE_AP_ERROR_NONE) {
 		goto FAIL;
 	}
@@ -311,7 +308,7 @@ mobile_ap_error_code_e _enable_usb_tethering(TetheringObject *obj)
 		ERR("Error getting vconf\n");
 		vconf_ignore_key_changed(VCONFKEY_SETAPPL_USB_MODE_INT,
 				__handle_usb_mode_change);
-		_deinit_tethering(obj);
+		_deinit_tethering();
 		ret = MOBILE_AP_ERROR_RESOURCE;
 		goto FAIL;
 	}
@@ -341,7 +338,7 @@ FAIL:
 	return ret;
 }
 
-mobile_ap_error_code_e _disable_usb_tethering(TetheringObject *obj)
+mobile_ap_error_code_e _disable_usb_tethering(Tethering *obj)
 {
 	mobile_ap_error_code_e ret = MOBILE_AP_ERROR_NONE;
 
@@ -351,7 +348,7 @@ mobile_ap_error_code_e _disable_usb_tethering(TetheringObject *obj)
 		return ret;
 	}
 
-	_deinit_tethering(obj);
+	_deinit_tethering();
 
 	if (_remove_station_info_all(MOBILE_AP_TYPE_USB) != MOBILE_AP_ERROR_NONE) {
 		ERR("_remove_station_info_all is failed. Ignore it\n");
@@ -379,8 +376,7 @@ mobile_ap_error_code_e _disable_usb_tethering(TetheringObject *obj)
 	return ret;
 }
 
-gboolean tethering_enable_usb_tethering(TetheringObject *obj,
-		DBusGMethodInvocation *context)
+gboolean tethering_enable_usb_tethering(Tethering *obj, GDBusMethodInvocation *context)
 {
 	mobile_ap_error_code_e ret = MOBILE_AP_ERROR_NONE;
 	gboolean ret_val = FALSE;
@@ -392,9 +388,7 @@ gboolean tethering_enable_usb_tethering(TetheringObject *obj,
 
 	if (g_context) {
 		DBG("It is turnning on\n");
-		dbus_g_method_return(context,
-				MOBILE_AP_ENABLE_USB_TETHERING_CFM,
-				MOBILE_AP_ERROR_IN_PROGRESS);
+		tethering_complete_enable_usb_tethering(obj, g_context, MOBILE_AP_ERROR_IN_PROGRESS);
 		return FALSE;
 	}
 
@@ -406,20 +400,21 @@ gboolean tethering_enable_usb_tethering(TetheringObject *obj,
 		goto DONE;
 	} else {
 		DBG("Don't need to wait for usb-setting\n");
-		_emit_mobileap_dbus_signal(obj, E_SIGNAL_USB_TETHER_ON, NULL);
+		tethering_emit_usb_on(obj);
+		_create_tethering_active_noti();
 		ret_val = TRUE;
 	}
 
 DONE:
-	dbus_g_method_return(g_context,
-			MOBILE_AP_ENABLE_USB_TETHERING_CFM, ret);
+	tethering_complete_enable_usb_tethering(obj, g_context, ret);
+
 	g_context = NULL;
 
 	return ret_val;
 }
 
-gboolean tethering_disable_usb_tethering(TetheringObject *obj,
-		DBusGMethodInvocation *context)
+gboolean tethering_disable_usb_tethering(Tethering *obj,
+		GDBusMethodInvocation *context)
 {
 	mobile_ap_error_code_e ret = MOBILE_AP_ERROR_NONE;
 	int usb_mode = SETTING_USB_NONE_MODE;
@@ -432,7 +427,7 @@ gboolean tethering_disable_usb_tethering(TetheringObject *obj,
 
 	if (g_context) {
 		DBG("It is turnning on\n");
-		dbus_g_method_return(context,
+		tethering_complete_disable_usb_tethering(obj, context,
 				MOBILE_AP_DISABLE_USB_TETHERING_CFM,
 				MOBILE_AP_ERROR_IN_PROGRESS);
 		return FALSE;
@@ -442,7 +437,7 @@ gboolean tethering_disable_usb_tethering(TetheringObject *obj,
 
 	ret = _disable_usb_tethering(obj);
 	if (ret != MOBILE_AP_ERROR_NONE) {
-		dbus_g_method_return(g_context,
+		tethering_complete_disable_usb_tethering(obj, g_context,
 				MOBILE_AP_DISABLE_USB_TETHERING_CFM, ret);
 		g_context = NULL;
 		return FALSE;
@@ -469,8 +464,8 @@ gboolean tethering_disable_usb_tethering(TetheringObject *obj,
 DONE:
 	vconf_ignore_key_changed(VCONFKEY_SETAPPL_USB_MODE_INT,
 			__handle_usb_mode_change);
-	_emit_mobileap_dbus_signal(obj, E_SIGNAL_USB_TETHER_OFF, NULL);
-	dbus_g_method_return(g_context,
+	tethering_emit_usb_off(obj, NULL);
+	tethering_complete_disable_usb_tethering(obj, g_context,
 			MOBILE_AP_DISABLE_USB_TETHERING_CFM, ret);
 	g_context = NULL;
 

@@ -17,17 +17,19 @@
 
 #include <glib.h>
 #include <dbus/dbus.h>
-#include <dbus/dbus-glib.h>
-#include <dbus/dbus-glib-lowlevel.h>
 #include <stdio.h>
 #include <string.h>
 #include <notification.h>
+#include <notification_list.h>
+#include <notification_text_domain.h>
+#include <notification_internal.h>
 #include <bluetooth.h>
+#include <bundle_internal.h>
 
 #include "mobileap_softap.h"
 #include "mobileap_notification.h"
 
-#define MH_NOTI_LAUNCH_PKGNAME	"setting-mobileap-efl"
+#define MH_NOTI_LAUNCH_PKGNAME	"ug-setting-mobileap-efl"
 #define MH_NOTI_CALLER_PKGNAME	"mobileap-agent"
 #define MH_LOCALE_DOMAIN	"ug-setting-mobileap-efl"
 #define MH_LOCALE_DIR "/usr/ug/res/locale"
@@ -252,7 +254,9 @@ int _create_connected_noti(int count, const char *icon_path)
 	b = bundle_create();
 	bundle_add(b, "caller", "notification");
 
-	appsvc_set_pkgname(b, "setting-mobileap-efl");
+#ifndef TIZEN_TV
+	appsvc_set_pkgname(b, "ug-setting-mobileap-efl");
+#endif
 
 	ret = notification_set_execute_option(noti,
 			NOTIFICATION_EXECUTE_TYPE_SINGLE_LAUNCH, "Launch", NULL, b);
@@ -439,7 +443,7 @@ void _create_tethering_active_noti(void)
 		active_count++;
 
 	if (active_count == 1)
-		__create_status_noti(_("IDS_COM_BODY_TETHERING_ENABLED"));
+		__create_status_noti(_("IDS_MOBILEAP_BODY_TETHERING_ACTIVE_ABB"));
 
 	return;
 }
@@ -449,10 +453,8 @@ void _create_bt_tethering_active_noti(void)
 	int ret;
 	bt_adapter_visibility_mode_e mode = BT_ADAPTER_VISIBILITY_MODE_NON_DISCOVERABLE;
 	int duration;
-	int str_len;
 	char *str1 = NULL;
 	char *str2 = NULL;
-	char *str = NULL;
 
 	if (!_mobileap_is_enabled(MOBILE_AP_STATE_WIFI) &&
 			!_mobileap_is_enabled(MOBILE_AP_STATE_USB)) {

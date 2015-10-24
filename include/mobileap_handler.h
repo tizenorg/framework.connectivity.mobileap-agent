@@ -27,7 +27,7 @@ typedef struct {
 } changed_state_t;
 
 void _register_vconf_cb(void *user_data);
-void _unregister_vconf_cb(void *user_data);
+void _unregister_vconf_cb(void);
 
 gboolean _is_power_save_survival_mode(void);
 int _sp_timeout_handler(alarm_id_t alarm_id, void *user_param);

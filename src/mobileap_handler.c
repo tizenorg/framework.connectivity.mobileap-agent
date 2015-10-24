@@ -17,8 +17,6 @@
 
 #include <glib.h>
 #include <dbus/dbus.h>
-#include <dbus/dbus-glib.h>
-#include <dbus/dbus-glib-lowlevel.h>
 #include <stdlib.h>
 
 #include "mobileap_softap.h"
@@ -54,7 +52,7 @@ static void __handle_network_cellular_state_changed_cb(keynode_t *key, void *dat
 		return;
 	}
 
-	TetheringObject *obj = (TetheringObject *)data;
+	Tethering *obj = (Tethering *)data;
 	int vconf_key = 0;
 
 	if (!_mobileap_is_enabled(MOBILE_AP_STATE_WIFI | MOBILE_AP_STATE_WIFI_AP)) {
@@ -80,7 +78,7 @@ static void __handle_network_cellular_state_changed_cb(keynode_t *key, void *dat
 	if (_mobileap_is_enabled(MOBILE_AP_STATE_USB))
 		_disable_usb_tethering(obj);
 
-	_emit_mobileap_dbus_signal(obj, E_SIGNAL_FLIGHT_MODE, NULL);
+	tethering_emit_flight_mode(obj);
 
 	return;
 }
@@ -92,9 +90,9 @@ static void __handle_device_name_changed_cb(keynode_t *key, void *data)
 		return;
 	}
 
-	TetheringObject *obj = (TetheringObject *)data;
+	Tethering *obj = (Tethering *)data;
 	char *vconf_key = NULL;
-	softap_settings_t new_settings;
+	softap_settings_t *new_settings = _get_softap_settings();
 	softap_security_type_e sec_type;
 
 	if (!_mobileap_is_enabled(MOBILE_AP_STATE_WIFI | MOBILE_AP_STATE_WIFI_AP)) {
@@ -107,21 +105,19 @@ static void __handle_device_name_changed_cb(keynode_t *key, void *data)
 	}
 	vconf_key = vconf_keynode_get_str(key);
 
-	if (g_strcmp0(vconf_key, obj->softap_settings.ssid) != 0) {
+	if (g_strcmp0(vconf_key, new_settings->ssid) != 0) {
 		DBG("Device name is changed\n");
-		new_settings = obj->softap_settings;
-		if (!g_strcmp0(new_settings.security_type, SOFTAP_SECURITY_TYPE_WPA2_PSK_STR)) {
+		if (!g_strcmp0(new_settings->security_type, SOFTAP_SECURITY_TYPE_WPA2_PSK_STR)) {
 			sec_type = SOFTAP_SECURITY_TYPE_WPA2_PSK;
 		} else {
 			sec_type = SOFTAP_SECURITY_TYPE_OPEN;
 		}
-		g_strlcpy(new_settings.ssid, vconf_key, sizeof(new_settings.ssid));
 		if (_mobileap_is_enabled(MOBILE_AP_STATE_WIFI)) {
-			_reload_softap_settings(obj, new_settings.ssid, new_settings.key,
-					new_settings.hide_mode, sec_type);
+			_reload_softap_settings(obj, vconf_key, new_settings->key,
+					new_settings->hide_mode, sec_type);
 		} else if (_mobileap_is_enabled(MOBILE_AP_STATE_WIFI_AP)) {
-			_reload_softap_settings_for_ap(obj, new_settings.ssid, new_settings.key,
-					new_settings.hide_mode, sec_type);
+			_reload_softap_settings_for_ap(obj, vconf_key, new_settings->key,
+					new_settings->hide_mode, sec_type);
 		}
 	}
 	return;
@@ -211,13 +207,8 @@ void _register_vconf_cb(void *user_data)
 	return;
 }
 
-void _unregister_vconf_cb(void *user_data)
+void _unregister_vconf_cb(void)
 {
-	if (user_data == NULL) {
-		ERR("Invalid param\n");
-		return;
-	}
-
 	vconf_reg_t vconf_reg[] = {
 		{VCONFKEY_NETWORK_CELLULAR_STATE,
 			__handle_network_cellular_state_changed_cb, NULL},
@@ -252,7 +243,7 @@ static gboolean __wifi_timeout_cb(gpointer data)
 		return FALSE;
 	}
 
-	TetheringObject *obj = (TetheringObject *)data;
+	Tethering *obj = (Tethering *)data;
 
 	if (_mobileap_is_enabled(MOBILE_AP_STATE_WIFI) == FALSE) {
 		ERR("There is no conn. via Wi-Fi tethernig. But nothing to do\n");
@@ -260,9 +251,9 @@ static gboolean __wifi_timeout_cb(gpointer data)
 	}
 
 	_disable_wifi_tethering(obj);
-	_emit_mobileap_dbus_signal(obj,
-			E_SIGNAL_WIFI_TETHER_OFF, SIGNAL_MSG_TIMEOUT);
-
+	tethering_emit_wifi_off(obj, SIGNAL_MSG_TIMEOUT);
+	//_launch_toast_popup(MOBILE_AP_TETHERING_TIMEOUT_TOAST_POPUP);
+	_create_timeout_noti(MH_NOTI_ICON_WIFI);
 	DBG("-\n");
 	return FALSE;
 }
@@ -275,7 +266,7 @@ static gboolean __bt_timeout_cb(gpointer data)
 		return FALSE;
 	}
 
-	TetheringObject *obj = (TetheringObject *)data;
+	Tethering *obj = (Tethering *)data;
 
 	if (_mobileap_is_enabled(MOBILE_AP_STATE_BT) == FALSE) {
 		ERR("There is no conn. via BT tethering. But nothing to do\n");
@@ -283,9 +274,9 @@ static gboolean __bt_timeout_cb(gpointer data)
 	}
 
 	_disable_bt_tethering(obj);
-	_emit_mobileap_dbus_signal(obj,
-			E_SIGNAL_BT_TETHER_OFF, SIGNAL_MSG_TIMEOUT);
-
+	tethering_emit_bluetooth_off(obj, SIGNAL_MSG_TIMEOUT);
+	//_launch_toast_popup(MOBILE_AP_TETHERING_TIMEOUT_TOAST_POPUP);
+	_create_timeout_noti(MH_NOTI_ICON_BT);
 	DBG("-\n");
 	return FALSE;
 }

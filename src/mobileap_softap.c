@@ -21,7 +21,6 @@
 #include <sys/ioctl.h>
 #include <glib.h>
 #include <glib-object.h>
-#include <dbus/dbus-glib.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -193,8 +192,11 @@ static int __execute_hostapd(const mobile_ap_type_e type, const char *ssid,
 		g_free(conf);
 		return MOBILE_AP_ERROR_RESOURCE;
 	}
-	fputs(conf, fp);
-	g_free(conf);
+
+	if (conf) {
+		fputs(conf, fp);
+		g_free(conf);
+	}
 	fclose(fp);
 
 	pid = fork();
@@ -1245,17 +1247,6 @@ int _mh_core_disable_masquerade(const char *ext_if)
 	return MOBILE_AP_ERROR_NONE;
 }
 
-void _mh_core_add_data_to_array(GPtrArray *array, guint type, gchar *dev_name)
-{
-	GValue value = {0, {{0}}};
-
-	g_value_init(&value, DBUS_STRUCT_UINT_STRING);
-	g_value_take_boxed(&value,
-			dbus_g_type_specialized_construct(DBUS_STRUCT_UINT_STRING));
-	dbus_g_type_struct_set(&value, 0, type, 1, dev_name, G_MAXUINT);
-	g_ptr_array_add(array, g_value_get_boxed(&value));
-}
-
 int _mh_core_set_ip_address(const char *if_name, const in_addr_t ip)
 {
 	struct ifreq ifr;
@@ -1345,8 +1336,11 @@ static gboolean __send_station_event_cb(gpointer data)
 
 static void __handle_station_signal(int sig)
 {
-	g_idle_add(__send_station_event_cb, GINT_TO_POINTER(sig));
-	return;
+	int idle_id = 0;
+	idle_id = g_idle_add(__send_station_event_cb, GINT_TO_POINTER(sig));
+	if (idle_id == 0) {
+		ERR("g_idle_add is failed\n");
+	}
 }
 
 void _register_wifi_station_handler(void)
