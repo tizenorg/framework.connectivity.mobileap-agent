@@ -91,7 +91,6 @@ static void _wifi_direct_state_cb(int error_code, wifi_direct_device_state_e sta
 		ERR("_enable_wifi_tethering is failed\n");
 	} else {
 		tethering_emit_wifi_on(obj);
-		_create_tethering_active_noti();
 	}
 
 DONE:
@@ -140,7 +139,6 @@ static void __wifi_deactivated_cb(wifi_error_e result, void *user_data)
 	} else {
 		prev_wifi_on = TRUE;
 		tethering_emit_wifi_on(obj);
-		_create_tethering_active_noti();
 	}
 
 DONE:
@@ -343,7 +341,6 @@ mobile_ap_error_code_e _reload_softap_settings(Tethering *obj,
 		return ret;
 	}
 	tethering_emit_wifi_on(obj);
-	_create_tethering_active_noti();
 
 	return MOBILE_AP_ERROR_NONE;
 }

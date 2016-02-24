@@ -97,7 +97,6 @@
 #define HOSTAPD_CONF_FILE	"/opt/var/lib/misc/hostapd.conf"
 #define HOSTAPD_CTRL_INTF_DIR	"/opt/var/lib/misc/hostapd"
 #define HOSTAPD_CONF_LEN	1024
-#ifndef TIZEN_WLAN_BOARD_SPRD
 #define HOSTAPD_CONF		"interface=%s\n" \
 				"driver=nl80211\n" \
 				"ctrl_interface=%s\n" \
@@ -107,19 +106,6 @@
 				"hw_mode=g\n" \
 				"max_num_sta=%d\n" \
 				"ieee80211n=1\n"
-#else
-#define HOSTAPD_CONF		"interface=%s\n" \
-				"driver=nl80211\n" \
-				"ctrl_interface=%s\n" \
-				"ssid=%s\n" \
-				"channel=%d\n" \
-				"ignore_broadcast_ssid=%d\n" \
-				"hw_mode=g\n" \
-				"max_num_sta=%d\n" \
-				"ieee80211n=1\n" \
-				"wowlan_triggers=any\n"
-#endif
-
 #define HOSTAPD_DEBUG_FILE	"/var/log/hostapd.log"
 #define HOSTAPD_REQ_MAX_LEN	128
 #define HOSTAPD_RETRY_MAX	5

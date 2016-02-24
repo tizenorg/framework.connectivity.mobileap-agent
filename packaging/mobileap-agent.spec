@@ -1,6 +1,6 @@
 Name:		mobileap-agent
 Summary:	Mobile AP daemon for setting tethering environments
-Version:	1.0.36
+Version:	1.0.33
 Release:	1
 Group:		System/Network
 License:	Apache-2.0
@@ -52,9 +52,6 @@ export FFLAGS="$FFLAGS -DTIZEN_DEBUG_ENABLE"
 %cmake -DCMAKE_BUILD_TYPE="" \
 %if "%{?tizen_profile_name}" == "tv"
 	-DTIZEN_TV=1 \
-%endif
-%if "%{?tizen_target_name}" == "Z300H"
-	-DTIZEN_WLAN_BOARD_SPRD=1 \
 %endif
 	.
 

@@ -462,6 +462,27 @@ static void on_bus_acquired_cb (GDBusConnection *connection, const gchar *name,
 			G_CALLBACK(tethering_get_station_info), NULL);
 	g_signal_connect(tethering_obj, "handle-get-data-packet-usage",
 			G_CALLBACK(tethering_get_data_packet_usage), NULL);
+#ifdef __PRIVATE_CODE__
+	g_signal_connect(tethering_obj, "handle-cont-enable-wifi-tethering",
+			G_CALLBACK(tethering_cont_enable_wifi_tethering), NULL);
+	g_signal_connect(tethering_obj, "handle-cont-enable-bt-tethering",
+			G_CALLBACK(tethering_cont_enable_bt_tethering), NULL);
+	g_signal_connect(tethering_obj, "handle-cont-enable-usb-tethering",
+			G_CALLBACK(tethering_cont_enable_usb_tethering), NULL);
+
+	g_signal_connect(tethering_obj, "handle-cancel-wifi-tethering",
+			G_CALLBACK(tethering_cancel_enable_wifi_tethering), NULL);
+	g_signal_connect(tethering_obj, "handle-cancel-bt-tethering",
+			G_CALLBACK(tethering_cancel_enable_bt_tethering), NULL);
+	g_signal_connect(tethering_obj, "handle-cancel-usb-tethering",
+			G_CALLBACK(tethering_cancel_enable_usb_tethering), NULL);
+#endif
+
+#ifdef __PRIVATE_CODE__
+#if defined TIZEN_MDM_ENABLE
+	_register_mdm_policy_cb((void *)tethering_obj);
+#endif /* TIZEN_MDM_ENABLE */
+#endif /* __PRIVATE_CODE__ */
 
 	_init_network((void *)tethering_obj);
 	_register_vconf_cb((void *)tethering_obj);
